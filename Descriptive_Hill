@@ -1,0 +1,658 @@
+---
+title: "L_brands"
+author: "gustavo"
+date: "15/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(highcharter)
+library(forecast)
+library(highcharter)
+library(ggplot2)
+library(ggfortify)
+library(prophet)
+library(corrplot)
+library(knitr)
+
+library(bigrquery) 
+library(dplyr) 
+library(DBI)
+library(ggplot2)
+library(bigQueryR)
+
+library(corrplot)
+library(drc)
+library(sandwich)
+library(lmtest)
+
+## BiGQuery Setup
+library(googleAuthR)
+library(searchConsoleR)
+options(googleAuthR.scopes.selected = c("https://www.googleapis.com/auth/bigquery",
+                                        "https://www.googleapis.com/auth/analytics"))
+
+library(igraph)
+library(RGoogleAnalytics)
+library(scales)
+library(googleAnalyticsR)
+library(ChannelAttribution)
+library(highcharter)
+library(viridisLite)
+library(forecast)
+library(treemap)
+
+library(knitr)
+library(kableExtra)
+
+gar_auth_service("conn.json")
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## Descriptive and Predictive Performance Marketing Analysis
+
+
+
+```{r BBW, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '2019-01-01' and '2019-12-09'
+
+group by
+1,
+2 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+
+
+dfb = bq_table_download(offence_qtr)
+df_b <- dfb
+
+
+#build arima model
+
+t.arima <- auto.arima(dfb$orders)
+x <- forecast(dfb$orders, level = c(95, 80))
+dfb <- fortify(x)
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 353)
+dfb$date <- time.points
+
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data
+colnames(df_b) <- c("ds", "brand", "y" , "a_orders" , "costs" , "total_cost", 
+                  "sessions", "inc_sessions" ,"inf_cost", "CPO", "CPA", "CIR", "CPV")
+m <- prophet(df_b)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(m, periods = 10)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecastb <- predict(m, future)
+tail(forecastb[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+plot(m, forecastb)
+
+dfb$prophet <- forecastb$yhat
+
+```
+
+
+
+```{r, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '2019-01-01' and '2019-12-09'
+
+group by
+1,
+2 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dfv = bq_table_download(offence_qtr)
+df_v <- dfv
+
+
+#build arima model
+
+t.arima <- auto.arima(dfv$orders)
+x <- forecast(dfv$orders, level = c(95, 80))
+dfv <- fortify(x)
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 353)
+dfv$date <- time.points
+
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data
+colnames(df_v) <- c("ds", "brand", "y" , "a_orders" , "costs" , "total_cost", 
+                  "sessions", "inc_sessions" ,"inf_cost", "CPO", "CPA", "CIR", "CPV")
+ms <- prophet(df_v)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(ms, periods = 10)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecast <- predict(ms, future)
+tail(forecast[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+plot(ms, forecast)
+
+dfv$prophet <- forecast$yhat
+
+```
+
+
+
+```{r, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '2019-01-01' and '2019-12-09'
+
+group by
+1,
+2 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_c = bq_table_download(offence_qtr)
+c = cor(dff_c$total_cost, dff_c$sessions,  method = "pearson", use = "complete.obs")
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+dff_c$date <- time.points
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '2019-01-01' and '2019-12-09'
+
+group by
+1,
+2 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_o = bq_table_download(offence_qtr)
+c_o = cor(dff_o$total_cost, dff_o$orders,  method = "pearson", use = "complete.obs")
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+dff_o$date <- time.points
+
+
+```
+
+
+
+```{r cor vs orders and inv, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '2019-01-01' and '2019-12-09'
+
+group by
+1,
+2 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_vs = bq_table_download(offence_qtr)
+c_vo = cor(dff_vs$total_cost, dff_vs$orders,  method = "pearson", use = "complete.obs")
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+dff_vs$date <- time.points
+
+
+```
+
+
+```{r cor vs sess and inv, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '2019-01-01' and '2019-12-09'
+
+group by
+1,
+2 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_vss = bq_table_download(offence_qtr)
+c_vss = cor(dff_vss$total_cost, dff_vss$sessions,  method = "pearson", use = "complete.obs")
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+dff_vss$date <- time.points
+
+
+```
+
+
+
+
+
+<h3> Orders time series </h3>
+
+
+
+```{r pressure, echo=FALSE}
+
+
+highchart(type = "stock") %>% 
+  hc_add_series(dfb, "line", hcaes(date, Data), name = "Original") %>% 
+  hc_add_series(dfb, "line", hcaes(date, Fitted), name = "Fitted") %>%
+  hc_add_series(dfb, "line", hcaes(date, prophet), name = "Prophet") %>%
+  hc_add_series(dfb, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
+  hc_title(text = "<b>BBW Oders And Trend</b>",
+           margin = 20, align = "left",
+           style = list(color = "#1D1F3C", useHTML = TRUE))
+
+
+
+highchart(type = "stock") %>% 
+  hc_add_series(dfv, "line", hcaes(date, Data), name = "Original") %>% 
+  hc_add_series(dfv, "line", hcaes(date, Fitted), name = "Fitted") %>%
+  hc_add_series(dfv, "line", hcaes(date, prophet), name = "Prophet") %>%
+  hc_add_series(dfv, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
+  hc_title(text = "<b>VS Oders And Arima Forecast</b>",
+           margin = 20, align = "left",
+           style = list(color = "#1D1F3C", useHTML = TRUE))
+
+
+```
+
+
+<h3> Correlation time series </h3>
+
+```{r correlation, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_c, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_c, "line", hcaes(date, sessions), name = "sessions")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Sessions, BBW",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation orders, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_o, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_o, "line", hcaes(date, orders), name = "orders")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Orders, BBW",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_o,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+
+```{r correlation vs sessions, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_vss, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_vss, "line", hcaes(date, sessions), name = "sessions")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Sessions, VS",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_vss,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation vs orders, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_vs, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_vs, "line", hcaes(date, orders), name = "Orders")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Orders, VS",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_vo,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+<h3>Correlation Matrix BBW </h3>
+
+```{r cor BBW, echo=FALSE}
+
+newdatacor = cor(dff_c[3:9])
+corrplot(newdatacor, method = "number")
+
+```
+
+<h3>Correlation Matrix VS </h3>
+
+```{r cor VS, echo=FALSE}
+
+newdatacor = cor(dff_vs[3:9])
+corrplot(newdatacor, method = "number")
+
+```
+
+
+<h3>Trend, Cycle and Seasonality BBW </h3>
+
+```{r cor Prophet BBW, echo=TRUE}
+plot(m, forecastb)#BBW AutoRegressive Moving Average.
+
+prophet_plot_components(m, forecastb, uncertainty = TRUE, plot_cap = TRUE,
+  weekly_start = 0, yearly_start = 0, render_plot = TRUE)
+
+
+```
+
+<h3>Trend, Cycle and Seasonality VS </h3>
+
+```{r cor Prophet VS, echo=TRUE}
+plot(ms, forecast)#VS AutoRegressive Moving Average.
+
+prophet_plot_components(ms, forecast, uncertainty = TRUE, plot_cap = TRUE,
+  weekly_start = 0, yearly_start = 0, render_plot = TRUE)
+
+```
+
+
+<h3>Media Response Curve, Hill Function BBW </h3>
+
+
+```{r Hill Scatter EDA, echo=TRUE}
+
+attach(dff_c)
+
+hchart(dff_c, "scatter", hcaes(x = total_cost, y = orders))
+
+```
+
+
+```{r Hill Calculation, include=FALSE}
+
+attach(dff_c)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+     xlab = "Media Spend", xlim = c(100, 10000),
+     ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+```{r Plot Hill BBW, echo=FALSE}
+
+#BHill <- function(B,K,S,...) B - ((K^S * B)/(...^S + K^S))
+#y = xb1 + BHill
+
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+
+```
+
+
+<h3>Media Response Curve, Hill Function VS</h3>
+
+
+```{r Hill ATTACH VS, include=FALSE}
+
+attach(dff_vs)
+
+```
+
+```{r Hill Scatter EDA VS, echo=TRUE}
+
+hchart(dff_vs, "scatter", hcaes(x = total_cost, y = orders))
+
+```
+
+
+
+```{r Hill Calculation VS, include=FALSE}
+
+attach(dff_vs)
+
+m.hill_v <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_v)
+
+hill_v <- plot(m.hill_v, broken = TRUE, type = "all",
+     xlab = "Media Spend", xlim = c(100, 10000),
+     ylab = "Orders", col="blue")
+
+
+colnames(hill_v) <- c("total_cost", "orders")
+
+```
+
+```{r Plot Hill VS, echo=TRUE}
+
+#BHill <- function(B,K,S,...) B - ((K^S * B)/(...^S + K^S))
+#y = xb1 + BHill
+
+hchart(hill_v, "line", hcaes(x = total_cost, y = orders))
+
+
+```
+
+
