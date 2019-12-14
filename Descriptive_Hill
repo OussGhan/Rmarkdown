@@ -1,9 +1,10 @@
 ---
-title: "L_brands"
-author: "gustavo"
+title: "Lbrands"
+author: "Gustavo"
 date: "15/12/2019"
 output: html_document
 ---
+
 
 ```{r setup, include=FALSE}
 
@@ -42,6 +43,7 @@ library(highcharter)
 library(viridisLite)
 library(forecast)
 library(treemap)
+library(rlang)
 
 library(knitr)
 library(kableExtra)
@@ -420,6 +422,92 @@ dff_vss$date <- time.points
 ```
 
 
+```{r CPO Mont BBW, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between'2019-01-01'and'2019-12-09'
+ 
+group by
+1
+ 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_mb = bq_table_download(offence_qtr)
+
+
+```
+
+
+```{r CPO Mont VS, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between'2019-01-01'and'2019-12-09'
+ 
+group by
+1
+ 
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_mv = bq_table_download(offence_qtr)
+
+
+```
 
 
 
@@ -435,7 +523,7 @@ highchart(type = "stock") %>%
   hc_add_series(dfb, "line", hcaes(date, Fitted), name = "Fitted") %>%
   hc_add_series(dfb, "line", hcaes(date, prophet), name = "Prophet") %>%
   hc_add_series(dfb, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
-  hc_title(text = "<b>BBW Oders And Trend</b>",
+  hc_title(text = "<b>BBW Orders And Trend</b>",
            margin = 20, align = "left",
            style = list(color = "#1D1F3C", useHTML = TRUE))
 
@@ -446,7 +534,7 @@ highchart(type = "stock") %>%
   hc_add_series(dfv, "line", hcaes(date, Fitted), name = "Fitted") %>%
   hc_add_series(dfv, "line", hcaes(date, prophet), name = "Prophet") %>%
   hc_add_series(dfv, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
-  hc_title(text = "<b>VS Oders And Arima Forecast</b>",
+  hc_title(text = "<b>VS Oders And Trend</b>",
            margin = 20, align = "left",
            style = list(color = "#1D1F3C", useHTML = TRUE))
 
@@ -576,10 +664,13 @@ prophet_plot_components(ms, forecast, uncertainty = TRUE, plot_cap = TRUE,
 
 <h3>Media Response Curve, Hill Function BBW </h3>
 
-
-```{r Hill Scatter EDA, echo=TRUE}
+```{r Hill ATTACH BBW, include=FALSE}
 
 attach(dff_c)
+
+```
+
+```{r Hill Scatter EDA, echo=TRUE}
 
 hchart(dff_c, "scatter", hcaes(x = total_cost, y = orders))
 
@@ -602,11 +693,9 @@ colnames(hill_b) <- c("total_cost", "orders")
 
 ```
 
-```{r Plot Hill BBW, echo=FALSE}
+```{r Plot Hill BBW, echo=TRUE}
 
-#BHill <- function(B,K,S,...) B - ((K^S * B)/(...^S + K^S))
-#y = xb1 + BHill
-
+#Y <- K/(1+exp(-(α+β*x)))
 hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
 
 ```
@@ -646,13 +735,20 @@ colnames(hill_v) <- c("total_cost", "orders")
 ```
 
 ```{r Plot Hill VS, echo=TRUE}
-
-#BHill <- function(B,K,S,...) B - ((K^S * B)/(...^S + K^S))
-#y = xb1 + BHill
-
+#Y <- K/(1+exp(-(α+β*x))) 
 hchart(hill_v, "line", hcaes(x = total_cost, y = orders))
+```
 
+<h3>CPO Evloution BBW</h3>
+
+```{r CPO Bar, echo=FALSE}
+hchart(df_mb, "column", hcaes(x = month_id, y = CPO))
 
 ```
 
+<h3>CPO Evloution VS </h3>
 
+```{r CPO Bar VS, echo=FALSE}
+hchart(df_mv, "column", hcaes(x = month_id, y = CPO))
+
+```
