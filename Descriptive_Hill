@@ -55,7 +55,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Descriptive and Predictive Performance Marketing Analysis
 
+```{r Start_date, include=FALSE}
 
+start_date <- "2019-01-01"
+end_date <- Sys.Date()
+
+```
 
 ```{r BBW, include=FALSE}
 
@@ -88,12 +93,12 @@ sum(affiliate_cost) as inf_cost,
 (SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
  
 FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand = 'bbw'and date between '2019-01-01' and '2019-12-09'
+where brand = 'bbw'and date between '%s' and '%s'
 
 group by
 1,
 2 
-order by 1 asc")
+order by 1 asc", start_date, end_date)
 
 
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
@@ -110,7 +115,11 @@ t.arima <- auto.arima(dfb$orders)
 x <- forecast(dfb$orders, level = c(95, 80))
 dfb <- fortify(x)
 
-time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 353)
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc)
 dfb$date <- time.points
 
 
@@ -169,12 +178,12 @@ sum(affiliate_cost) as inf_cost,
 (SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
  
 FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand = 'vs'and date between '2019-01-01' and '2019-12-09'
+where brand = 'vs'and date between '%s' and '%s'
 
 group by
 1,
 2 
-order by 1 asc")
+order by 1 asc", start_date, end_date)
 
 
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
@@ -189,7 +198,10 @@ t.arima <- auto.arima(dfv$orders)
 x <- forecast(dfv$orders, level = c(95, 80))
 dfv <- fortify(x)
 
-time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 353)
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc)
 dfv$date <- time.points
 
 
@@ -247,12 +259,12 @@ sum(affiliate_cost) as inf_cost,
 (SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
  
 FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand = 'bbw'and date between '2019-01-01' and '2019-12-09'
+where brand = 'bbw'and date between '%s' and '%s'
 
 group by
 1,
 2 
-order by 1 asc")
+order by 1 asc",start_date, end_date)
 
 
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
@@ -260,7 +272,10 @@ offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
 dff_c = bq_table_download(offence_qtr)
 c = cor(dff_c$total_cost, dff_c$sessions,  method = "pearson", use = "complete.obs")
 
-time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc_c<- total_days
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
 dff_c$date <- time.points
 
 
@@ -299,12 +314,12 @@ sum(affiliate_cost) as inf_cost,
 (SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
  
 FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand = 'bbw'and date between '2019-01-01' and '2019-12-09'
+where brand = 'bbw'and date between '%s' and '%s'
 
 group by
 1,
 2 
-order by 1 asc")
+order by 1 asc",start_date, end_date)
 
 
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
@@ -312,7 +327,7 @@ offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
 dff_o = bq_table_download(offence_qtr)
 c_o = cor(dff_o$total_cost, dff_o$orders,  method = "pearson", use = "complete.obs")
 
-time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
 dff_o$date <- time.points
 
 
@@ -351,12 +366,12 @@ sum(affiliate_cost) as inf_cost,
 (SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
  
 FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand = 'vs'and date between '2019-01-01' and '2019-12-09'
+where brand = 'vs'and date between '%s' and '%s'
 
 group by
 1,
 2 
-order by 1 asc")
+order by 1 asc",start_date, end_date)
 
 
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
@@ -364,7 +379,10 @@ offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
 dff_vs = bq_table_download(offence_qtr)
 c_vo = cor(dff_vs$total_cost, dff_vs$orders,  method = "pearson", use = "complete.obs")
 
-time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
 dff_vs$date <- time.points
 
 
@@ -402,12 +420,12 @@ sum(affiliate_cost) as inf_cost,
 (SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
  
 FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand = 'vs'and date between '2019-01-01' and '2019-12-09'
+where brand = 'vs'and date between '%s' and '%s'
 
 group by
 1,
 2 
-order by 1 asc")
+order by 1 asc",start_date, end_date)
 
 
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
@@ -415,7 +433,7 @@ offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
 dff_vss = bq_table_download(offence_qtr)
 c_vss = cor(dff_vss$total_cost, dff_vss$sessions,  method = "pearson", use = "complete.obs")
 
-time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = 343)
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
 dff_vss$date <- time.points
 
 
@@ -451,12 +469,12 @@ sum(affiliate_cost) as inf_cost,
 (SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
  
 FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand = 'bbw'and date between'2019-01-01'and'2019-12-09'
+where brand = 'bbw'and date between '%s' and '%s'
  
 group by
 1
  
-order by 1 asc")
+order by 1 asc", start_date, end_date)
 
 
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
