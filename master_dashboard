@@ -1,0 +1,2786 @@
+---
+title: "Performance Marketing"
+output:
+  html_document:
+    toc: true
+    theme: united
+    toc_float: true
+    css: custom.css
+---
+
+
+```{r setup, include=FALSE}
+
+library(highcharter)
+library(dplyr)
+library(viridisLite)
+library(forecast)
+library(treemap)
+library(flexdashboard)
+library(arules)
+
+library(highcharter)
+library(forecast)
+library(highcharter)
+library(ggplot2)
+library(ggfortify)
+library(prophet)
+library(corrplot)
+library(knitr)
+
+library(bigrquery) 
+library(dplyr) 
+library(DBI)
+library(ggplot2)
+library(bigQueryR)
+
+library(corrplot)
+library(drc)
+library(sandwich)
+library(lmtest)
+
+## BiGQuery Setup
+library(googleAuthR)
+library(searchConsoleR)
+
+options(googleAuthR.scopes.selected = c("https://www.googleapis.com/auth/bigquery",
+                                        "https://www.googleapis.com/auth/analytics"))
+
+library(igraph)
+library(RGoogleAnalytics)
+library(scales)
+library(googleAnalyticsR)
+library(ChannelAttribution)
+library(highcharter)
+library(viridisLite)
+library(forecast)
+library(treemap)
+library(rlang)
+library(shiny)
+
+library(knitr)
+library(kableExtra)
+library(plotly)
+
+gar_auth_service("conn.json")
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+```{r Start_date, include=FALSE}
+
+start_date <- "2019-01-01"
+end_date <- Sys.Date()
+
+```
+
+
+All Brands P&L {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Performance
+
+
+```{r all brands query PL, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+month_id,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where date between '%s' and '%s'
+
+group by
+1
+
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_all_f = bq_table_download(offence_qtr)
+
+#add store ctb
+df_all_f$store_ctb <- c(0.31, 0.38, 0.48, 0.47, 0.47, 0.47, 0.37, 0.37, 0.39, 0.35, 0.35, 0.36)
+
+#add brand ctb
+df_all_f$brand_ctb <-(df_all_f$revenue*df_all_f$store_ctb)-df_all_f$mkt_investment
+
+```
+
+
+```{r All B P&L table, echo=FALSE}
+kable(df_all_f,digits=2, align=rep('c', 8) ,format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+  
+```
+
+
+### Top line & Bottom line 
+
+```{r P&L all, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_all_f$month_id) %>%
+    hc_add_series(name="Mkt_Investment",data = df_all_f$mkt_investment) %>%
+    hc_add_series(name="Brand_ctb",data = df_all_f$brand_ctb)%>%
+    hc_add_series(name="Revenue",data = df_all_f$revenue)
+
+```
+
+
+
+### Total 2019
+
+
+```{r, echo=FALSE}
+
+s_mkt_investment_all <- sum(df_all_f$mkt_investment)
+s_brand_ctb_all <- sum(df_all_f$brand_ctb)
+s_revenue_ctb_all <- sum(df_all_f$revenue)
+
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_add_series(name="Mkt_Investment",data = s_mkt_investment_all) %>%
+    hc_add_series(name="Brand_ctb",data = s_brand_ctb_all)%>%
+    hc_add_series(name="Revenue",data = s_revenue_ctb_all)
+
+```
+
+Mothercare P&L {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Performance
+
+
+```{r MC query PL, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+month_id,
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'mc'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_mc_f = bq_table_download(offence_qtr)
+
+#add store ctb
+df_mc_f$store_ctb <- c(0.27, 0.29, 0.36, 0.38, 0.42, 0.42, 0.34, 0.29, 0.38, 0.35, 0.28, 0.28)
+
+#add brand ctb
+df_mc_f$brand_ctb <-(df_mc_f$revenue*df_mc_f$store_ctb)-df_mc_f$mkt_investment
+
+```
+
+
+```{r MC P&L table, echo=FALSE}
+
+kable(df_mc_f,digits=2, align=rep('c', 9) ,format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+### Top line & Bottom line 
+
+```{r P&L MC, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_mc_f$month_id) %>%
+    hc_add_series(name="Mkt_Investment",data = df_mc_f$mkt_investment) %>%
+    hc_add_series(name="Brand_ctb",data = df_mc_f$brand_ctb)%>%
+    hc_add_series(name="Revenue",data = df_mc_f$revenue)
+
+```
+
+
+### Total 2019
+
+
+```{r, echo=FALSE}
+
+s_mkt_investment_mc <- sum(df_mc_f$mkt_investment)
+s_brand_ctb_mc <- sum(df_mc_f$brand_ctb)
+s_revenue_ctb_mc <- sum(df_mc_f$revenue)
+
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_add_series(name="Mkt_Investment",data = s_mkt_investment_mc) %>%
+    hc_add_series(name="Brand_ctb",data = s_brand_ctb_mc)%>%
+    hc_add_series(name="Revenue",data = s_revenue_ctb_mc)
+
+```
+
+
+
+
+BBW P&L {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Performance
+
+
+```{r BBW query PL, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+month_id,
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '2019-01-01' and '2019-12-15'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_bbw_f = bq_table_download(offence_qtr)
+
+#add store ctb
+df_bbw_f$store_ctb <- c(0.42, 0.43, 0.55, 0.55, 0.47, 0.49, 0.40, 0.45, 0.48, 0.44, 0.41, 0.42)
+
+#add brand ctb
+df_bbw_f$brand_ctb <-(df_bbw_f$revenue*df_bbw_f$store_ctb)-df_bbw_f$mkt_investment
+
+```
+
+
+```{r BBW P&L table, echo=FALSE}
+
+kable(df_bbw_f,digits=2, align=rep('c', 9) ,format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+### Top line & Bottom line 
+
+```{r P&L BBW, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_bbw_f$month_id) %>%
+    hc_add_series(name="Mkt_Investment",data = df_bbw_f$mkt_investment) %>%
+    hc_add_series(name="Brand_ctb",data = df_bbw_f$brand_ctb)%>%
+    hc_add_series(name="Revenue",data = df_bbw_f$revenue)
+
+```
+
+
+### Total 2019
+
+
+```{r, echo=FALSE}
+
+s_mkt_investment_bbw <- sum(df_bbw_f$mkt_investment)
+s_brand_ctb_bbw <- sum(df_bbw_f$brand_ctb)
+s_revenue_ctb_bbw <- sum(df_bbw_f$revenue)
+
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_add_series(name="Mkt_Investment",data = s_mkt_investment_bbw) %>%
+    hc_add_series(name="Brand_ctb",data = s_brand_ctb_bbw )%>%
+    hc_add_series(name="Revenue",data = s_revenue_ctb_bbw )
+
+```
+
+
+
+H&M P&L {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Performance
+
+
+```{r HM query PL, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+month_id,
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue,
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'hm'and date between '2019-01-01' and '2019-12-15'
+
+group by
+1,
+2 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_hm_f = bq_table_download(offence_qtr)
+
+#add store ctb
+df_hm_f$store_ctb <- c(0.30, 0.45, 0.44, 0.45, 0.47, 0.43, 0.40, 0.43, 0.43, 0.42, 0.43, 0.44)
+
+#add brand ctb
+df_hm_f$brand_ctb <-(df_hm_f$revenue*df_hm_f$store_ctb)-df_hm_f$mkt_investment
+
+```
+
+
+```{r HM P&L table, echo=FALSE}
+
+kable(df_hm_f,digits=2, align=rep('c', 9) ,format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+### Top line & Bottom line 
+
+```{r P&L HM, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_hm_f$month_id) %>%
+    hc_add_series(name="Mkt_Investment",data = df_hm_f$mkt_investment) %>%
+    hc_add_series(name="Brand_ctb",data = df_hm_f$brand_ctb)%>%
+    hc_add_series(name="Revenue",data = df_hm_f$revenue)
+
+```
+
+
+### Total 2019
+
+
+```{r, echo=FALSE}
+
+s_mkt_investment_hm <- sum(df_hm_f$mkt_investment)
+s_brand_ctb_hm <- sum(df_hm_f$brand_ctb)
+s_revenue_ctb_hm <- sum(df_hm_f$revenue)
+
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_add_series(name="Mkt_Investment",data = s_mkt_investment_hm) %>%
+    hc_add_series(name="Brand_ctb",data = s_brand_ctb_hm)%>%
+    hc_add_series(name="Revenue",data = s_revenue_ctb_hm)
+
+```
+
+
+VS P&L {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Performance
+
+
+```{r VS query PL, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+month_id,
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_vs_f = bq_table_download(offence_qtr)
+
+#add store ctb
+df_vs_f$store_ctb <- c(0.30, 0.45, 0.44, 0.45, 0.47, 0.43, 0.40, 0.43, 0.43, 0.42, 0.43, 0.44)
+
+#add brand ctb
+df_vs_f$brand_ctb <-(df_vs_f$revenue*df_vs_f$store_ctb)-df_vs_f$mkt_investment
+
+```
+
+
+```{r vs P&L table, echo=FALSE}
+
+kable(df_vs_f,digits=2, align=rep('c', 9) ,format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+### Top line & Bottom line 
+
+```{r P&L vs, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_vs_f$month_id) %>%
+    hc_add_series(name="Mkt_Investment",data = df_vs_f$mkt_investment) %>%
+    hc_add_series(name="Brand_ctb",data = df_vs_f$brand_ctb)%>%
+    hc_add_series(name="Revenue",data = df_vs_f$revenue)
+
+```
+
+
+### Total 2019
+
+
+```{r, echo=FALSE}
+
+s_mkt_investment_vs <- sum(df_vs_f$mkt_investment)
+s_brand_ctb_vs <- sum(df_vs_f$brand_ctb)
+s_revenue_ctb_vs <- sum(df_vs_f$revenue)
+
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_add_series(name="Mkt_Investment",data = s_mkt_investment_vs) %>%
+    hc_add_series(name="Brand_ctb",data = s_brand_ctb_vs)%>%
+    hc_add_series(name="Revenue",data = s_revenue_ctb_vs)
+
+```
+
+
+PB P&L {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Performance
+
+
+```{r PB query PL, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+month_id,
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'pb'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_pb_f = bq_table_download(offence_qtr)
+
+#add store ctb
+df_pb_f$store_ctb <- c(0.54, 0.55 ,0.58, 0.49, 0.52, 0.53, 0.49, 0.38, 0.37, 0.30, 0.41, 0.42)
+
+#add brand ctb
+df_pb_f$brand_ctb <-(df_pb_f$revenue*df_pb_f$store_ctb)-df_pb_f$mkt_investment
+
+```
+
+
+```{r pb P&L table, echo=FALSE}
+
+kable(df_pb_f,digits=2, align=rep('c', 9) ,format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+### Top line & Bottom line 
+
+```{r P&L pb, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_pb_f$month_id) %>%
+    hc_add_series(name="Mkt_Investment",data = df_pb_f$mkt_investment) %>%
+    hc_add_series(name="Brand_ctb",data = df_pb_f$brand_ctb)%>%
+    hc_add_series(name="Revenue",data = df_pb_f$revenue)
+
+```
+
+
+### Total 2019
+
+
+```{r, echo=FALSE}
+
+s_mkt_investment_pb <- sum(df_pb_f$mkt_investment)
+s_brand_ctb_pb <- sum(df_pb_f$brand_ctb)
+s_revenue_ctb_pb <- sum(df_pb_f$revenue)
+
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_add_series(name="Mkt_Investment",data = s_mkt_investment_pb) %>%
+    hc_add_series(name="Brand_ctb",data = s_brand_ctb_pb)%>%
+    hc_add_series(name="Revenue",data = s_revenue_ctb_pb)
+
+```
+
+
+FL P&L {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+### Performance
+
+
+```{r FL query PL, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+month_id,
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'fl'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_fl_f = bq_table_download(offence_qtr)
+
+#add store ctb
+df_fl_f$store_ctb <- c(0.27, 0.13, 0.21, 0.15, 0.11, 0.16)
+
+#add brand ctb
+df_fl_f$brand_ctb <-(df_fl_f$revenue*df_fl_f$store_ctb)-df_fl_f$mkt_investment
+
+```
+
+
+```{r fl P&L table, echo=FALSE}
+
+kable(df_fl_f,digits=2, align=rep('c', 9) ,format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
+
+
+### Top line & Bottom line 
+
+```{r P&L FL, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_fl_f$month_id) %>%
+    hc_add_series(name="Mkt_Investment",data = df_fl_f$mkt_investment) %>%
+    hc_add_series(name="Brand_ctb",data = df_fl_f$brand_ctb)%>%
+    hc_add_series(name="Revenue",data = df_fl_f$revenue)
+
+```
+
+
+### Total 2019
+
+
+```{r, echo=FALSE}
+
+s_mkt_investment_fl <- sum(df_fl_f$mkt_investment)
+s_brand_ctb_fl <- sum(df_fl_f$brand_ctb)
+s_revenue_ctb_fl <- sum(df_fl_f$revenue)
+
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_add_series(name="Mkt_Investment",data = s_mkt_investment_fl) %>%
+    hc_add_series(name="Brand_ctb",data = s_brand_ctb_fl)%>%
+    hc_add_series(name="Revenue",data = s_revenue_ctb_fl)
+
+```
+
+
+
+
+All Brands Orders Run Rate {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+
+
+```{r All Brands, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where date between '%s' and '%s'
+
+group by
+1
+
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dfall = bq_table_download(offence_qtr)
+df_all <- dfall
+df_all_v <- dfall
+
+
+df_all_v = bq_table_download(offence_qtr)
+c_all = cor(df_all_v$total_cost, df_all_v$sessions,  method = "pearson", use = "complete.obs")
+c_all_o = cor(df_all_v$total_cost, df_all_v$orders,  method = "pearson", use = "complete.obs")
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+
+days_inc_c<- total_days
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
+df_all_v$date <- time.points
+
+
+#build arima model
+
+t.arima <- auto.arima(dfall$orders)
+x <- forecast(dfall$orders, level = c(95, 80))
+dfall <- fortify(x)
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc)
+dfall$date <- time.points
+
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data
+colnames(df_all) <- c("ds", "y" , "a_orders" , "costs" , "total_cost", 
+                  "sessions", "inc_sessions" ,"inf_cost", "CPO", "CPA", "CIR", "CPV")
+mall <- prophet(df_all)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(mall, periods = 10)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecastall <- predict(mall, future)
+tail(forecastall[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+plot(mall, forecastall)
+
+dfall$prophet <- forecastall$yhat
+
+```
+
+
+
+```{r BBW, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+
+
+dfb = bq_table_download(offence_qtr)
+df_b <- dfb
+
+
+#build arima model
+
+t.arima <- auto.arima(dfb$orders)
+x <- forecast(dfb$orders, level = c(95, 80))
+dfb <- fortify(x)
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc)
+dfb$date <- time.points
+
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data
+colnames(df_b) <- c("ds", "brand", "y" , "a_orders" , "costs" , "total_cost", 
+                  "sessions", "inc_sessions" ,"inf_cost", "CPO", "CPA", "CIR", "CPV")
+mb <- prophet(df_b)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(mb, periods = 10)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecastb <- predict(mb, future)
+tail(forecastb[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+plot(mb, forecastb)
+
+dfb$prophet <- forecastb$yhat
+
+```
+
+
+
+```{r HM, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'hm'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+
+
+dfhm = bq_table_download(offence_qtr)
+df_hm <- dfhm
+df_hm_o <- dfhm
+c_hm_o = cor(df_hm$total_cost, df_hm$orders,  method = "pearson", use = "complete.obs")
+c_hm_s = cor(df_hm$total_cost, df_hm$sessions,  method = "pearson", use = "complete.obs")
+
+
+
+#build arima model
+
+t.arima <- auto.arima(dfhm$orders)
+x <- forecast(dfhm$orders, level = c(95, 80))
+dfhm <- fortify(x)
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc)
+dfhm$date <- time.points
+
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data
+colnames(df_hm) <- c("ds", "brand", "y" , "a_orders" , "costs" , "total_cost", 
+                  "sessions", "inc_sessions" ,"inf_cost", "CPO", "CPA", "CIR", "CPV")
+mh <- prophet(df_hm)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(mh, periods = 10)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecasthm <- predict(mh, future)
+tail(forecasthm[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+plot(mh, forecasthm)
+dfhm$prophet <- forecasthm$yhat
+
+```
+
+
+
+
+```{r MC, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'mc'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+
+
+dfmc = bq_table_download(offence_qtr)
+df_mc <- dfmc
+df_mc_o <- dfmc
+c_mc_o = cor(df_mc$total_cost, df_mc$orders,  method = "pearson", use = "complete.obs")
+c_mc_s = cor(df_mc$total_cost, df_mc$sessions,  method = "pearson", use = "complete.obs")
+
+
+#build arima model
+
+t.arima <- auto.arima(dfmc$orders)
+x <- forecast(dfmc$orders, level = c(95, 80))
+dfmc <- fortify(x)
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc)
+dfmc$date <- time.points
+
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data
+colnames(df_mc) <- c("ds", "brand", "y" , "a_orders" , "costs" , "total_cost", 
+                  "sessions", "inc_sessions" ,"inf_cost", "CPO", "CPA", "CIR", "CPV")
+mc <- prophet(df_mc)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(mc, periods = 10)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecastmc <- predict(mc, future)
+tail(forecastmc[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+plot(mc, forecastmc)
+dfmc$prophet <- forecastmc$yhat
+
+```
+
+
+```{r, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dfv = bq_table_download(offence_qtr)
+df_v <- dfv
+
+
+#build arima model
+
+t.arima <- auto.arima(dfv$orders)
+x <- forecast(dfv$orders, level = c(95, 80))
+dfv <- fortify(x)
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc)
+dfv$date <- time.points
+
+
+#build prophet model
+
+#Call function with prohet to fit the model based on the historical data
+colnames(df_v) <- c("ds", "brand", "y" , "a_orders" , "costs" , "total_cost", 
+                  "sessions", "inc_sessions" ,"inf_cost", "CPO", "CPA", "CIR", "CPV")
+ms <- prophet(df_v)
+
+#Forecast future by default the model will also include historical dates
+future <- make_future_dataframe(ms, periods = 10)
+tail(future)
+
+#Predict the future outcome into a new data frame
+forecast <- predict(ms, future)
+tail(forecast[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+plot(ms, forecast)
+dfv$prophet <- forecast$yhat
+
+```
+
+
+
+```{r, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+SUM(orders) / SUM(session) as CVR,
+SUM(gross_revenue) / SUM(orders) as price,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_c = bq_table_download(offence_qtr)
+c = cor(dff_c$total_cost, dff_c$sessions,  method = "pearson", use = "complete.obs")
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc_c<- total_days
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
+dff_c$date <- time.points
+
+
+```
+
+
+```{r hm, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+SUM(orders) / SUM(session) as CVR,
+SUM(gross_revenue) / SUM(orders) as price,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'hm'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+df_hm_v = bq_table_download(offence_qtr)
+
+```
+
+
+```{r mc corrplot, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+SUM(orders) / SUM(session) as CVR,
+SUM(gross_revenue) / SUM(orders) as price,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'mc'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+df_mc_v = bq_table_download(offence_qtr)
+
+```
+
+
+
+
+
+```{r, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV,
+SUM(orders) / SUM(session) as CVR
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_o = bq_table_download(offence_qtr)
+c_o = cor(dff_o$total_cost, dff_o$orders,  method = "pearson", use = "complete.obs")
+cb_cvr = cor(dff_o$total_cost, dff_o$CVR,  method = "pearson", use = "complete.obs")
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
+dff_o$date <- time.points
+
+
+```
+
+
+```{r cor vs orders and inv, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+SUM(orders) / SUM(session) as CVR,
+SUM(gross_revenue) / SUM(orders) as price,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_vs = bq_table_download(offence_qtr)
+c_vo = cor(dff_vs$total_cost, dff_vs$orders,  method = "pearson", use = "complete.obs")
+cvs_cvr = cor(dff_vs$total_cost, dff_vs$CVR,  method = "pearson", use = "complete.obs")
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
+dff_vs$date <- time.points
+
+
+```
+
+
+
+```{r cor  orders and inv, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+SUM(orders) / SUM(session) as CVR,
+SUM(gross_revenue) / SUM(orders) as price,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_vs = bq_table_download(offence_qtr)
+c_vo = cor(dff_vs$total_cost, dff_vs$orders,  method = "pearson", use = "complete.obs")
+cvs_cvr = cor(dff_vs$total_cost, dff_vs$CVR,  method = "pearson", use = "complete.obs")
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
+dff_vs$date <- time.points
+
+
+```
+
+
+
+
+```{r cor vs sess and inv, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_vss = bq_table_download(offence_qtr)
+c_vss = cor(dff_vss$total_cost, dff_vss$sessions,  method = "pearson", use = "complete.obs")
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
+dff_vss$date <- time.points
+
+
+```
+
+
+```{r cor vsss orders and inv, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+date,
+brand,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+SUM(orders) / SUM(session) as CVR,
+SUM(gross_revenue) / SUM(orders) as price,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '%s' and '%s'
+
+group by
+1,
+2 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+
+dff_vs = bq_table_download(offence_qtr)
+c_vo = cor(dff_vs$total_cost, dff_vs$orders,  method = "pearson", use = "complete.obs")
+cvs_cvr = cor(dff_vs$total_cost, dff_vs$CVR,  method = "pearson", use = "complete.obs")
+
+total_days = as.Date(as.character(end_date), format="%Y-%m-%d")-as.Date(as.character(start_date), format="%Y-%m-%d")
+days_inc <- total_days+10
+
+time.points <- seq.Date(as.Date("2019-01-01"), by = 1, length.out = days_inc_c)
+dff_vs$date <- time.points
+
+
+```
+
+
+
+
+```{r CPO Mont BBW, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw'and date between '%s' and '%s'
+ 
+group by
+1
+ 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_mb = bq_table_download(offence_qtr)
+
+
+```
+
+
+
+```{r CPO Mont VS, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs'and date between '%s' and '%s'
+ 
+group by
+1
+ 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_mv = bq_table_download(offence_qtr)
+
+
+```
+
+
+```{r CPO Mont HM, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'hm'and date between '%s' and '%s'
+ 
+group by
+1
+ 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_hm_cpo = bq_table_download(offence_qtr)
+
+
+```
+
+
+```{r CPO Mont MC, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'mc'and date between '%s' and '%s'
+ 
+group by
+1
+ 
+order by 1 asc", start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_mc_cpo = bq_table_download(offence_qtr)
+
+
+```
+
+
+```{r CPO Mont PB, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'pb'and date between '%s' and '%s'
+ 
+group by
+1
+ 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_pb_cpo = bq_table_download(offence_qtr)
+
+
+```
+
+```{r CPO Mont FL, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("SELECT
+month_id,
+SUM(orders) as orders,
+sum(affiliate_orders) as a_orders,
+SUM(cost) as costs,
+(SUM(affiliate_cost) + SUM(cost)) as total_cost,
+SUM(session) as sessions,
+SUM(session) *0.25 as inc_session,
+sum(affiliate_cost) as inf_cost,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+(SUM(affiliate_cost) + SUM(cost)) / sum(gross_revenue) as CIR,
+(SUM(affiliate_cost) + SUM(cost)) / SUM(session) as CPV
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'fl'and date between '%s' and '%s'
+ 
+group by
+1
+ 
+order by 1 asc",start_date, end_date)
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_fl_cpo = bq_table_download(offence_qtr)
+
+
+```
+
+
+<h3> Orders time series </h3>
+
+```{r pressure, echo=FALSE}
+
+
+highchart(type = "stock") %>% 
+  hc_add_series(dfall, "line", hcaes(date, Data), name = "Original") %>% 
+  hc_add_series(dfall, "line", hcaes(date, Fitted), name = "Fitted") %>%
+  hc_add_series(dfall, "line", hcaes(date, prophet), name = "Prophet") %>%
+  hc_add_series(dfall, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
+  hc_title(text = "<b>All Orders And Trend</b>",
+           margin = 20, align = "left",
+           style = list(color = "#1D1F3C", useHTML = TRUE))
+
+
+highchart(type = "stock") %>% 
+  hc_add_series(dfb, "line", hcaes(date, Data), name = "Original") %>% 
+  hc_add_series(dfb, "line", hcaes(date, Fitted), name = "Fitted") %>%
+  hc_add_series(dfb, "line", hcaes(date, prophet), name = "Prophet") %>%
+  hc_add_series(dfb, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
+  hc_title(text = "<b>BBW Orders And Trend</b>",
+           margin = 20, align = "left",
+           style = list(color = "#1D1F3C", useHTML = TRUE))
+
+
+
+highchart(type = "stock") %>% 
+  hc_add_series(dfv, "line", hcaes(date, Data), name = "Original") %>% 
+  hc_add_series(dfv, "line", hcaes(date, Fitted), name = "Fitted") %>%
+  hc_add_series(dfv, "line", hcaes(date, prophet), name = "Prophet") %>%
+  hc_add_series(dfv, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
+  hc_title(text = "<b>VS Oders And Trend</b>",
+           margin = 20, align = "left",
+           style = list(color = "#1D1F3C", useHTML = TRUE))
+
+
+
+
+highchart(type = "stock") %>% 
+  hc_add_series(dfhm, "line", hcaes(date, Data), name = "Original") %>% 
+  hc_add_series(dfhm, "line", hcaes(date, Fitted), name = "Fitted") %>%
+  hc_add_series(dfhm, "line", hcaes(date, prophet), name = "Prophet") %>%
+  hc_add_series(dfhm, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
+  hc_title(text = "<b>HM Oders And Trend</b>",
+           margin = 20, align = "left",
+           style = list(color = "#1D1F3C", useHTML = TRUE))
+
+
+
+highchart(type = "stock") %>% 
+  hc_add_series(dfmc, "line", hcaes(date, Data), name = "Original") %>% 
+  hc_add_series(dfmc, "line", hcaes(date, Fitted), name = "Fitted") %>%
+  hc_add_series(dfmc, "line", hcaes(date, prophet), name = "Prophet") %>%
+  hc_add_series(dfmc, "line", hcaes(date, `Point Forecast`), name = "Arima")%>% 
+  hc_title(text = "<b>MC Oders And Trend</b>",
+           margin = 20, align = "left",
+           style = list(color = "#1D1F3C", useHTML = TRUE))
+
+
+
+```
+
+
+Correlation time series {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+
+
+```{r correlation session All, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_all_v, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(df_all_v, "line", hcaes(date, sessions), name = "sessions")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Sessions",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_all,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation All, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_all_v, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(df_all_v, "line", hcaes(date, orders), name = "orders")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Orders, All Brands",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_all_o,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation session BBW, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_c, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_c, "line", hcaes(date, sessions), name = "sessions")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Sessions, BBW",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation orders BBW, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_o, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_o, "line", hcaes(date, orders), name = "orders")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Orders, BBW",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_o,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation CvR BBW, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_o, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_o, "line", hcaes(date, CVR), name = "CvR")%>% 
+  hc_title(text = "Correlation ρMedia Investment & CvR, BBW",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = cb_cvr,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation vs sessions, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_vss, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_vss, "line", hcaes(date, sessions), name = "sessions")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Sessions, VS",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_vss,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation vs orders, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(dff_vs, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(dff_vs, "line", hcaes(date, orders), name = "Orders")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Orders, VS",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_vo,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation hm sessions, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_hm_o, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(df_hm_o, "line", hcaes(date, sessions), name = "Sessions")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Sessions, HM",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_hm_s,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+```
+
+
+
+```{r correlation hm orders, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_hm_o, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(df_hm_o, "line", hcaes(date, orders), name = "orders")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Orders, HM",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_hm_o,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+
+```{r correlation mc sessions, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_mc_o, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(df_mc_o, "line", hcaes(date, sessions), name = "Sessions")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Sessions, MC",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_mc_s,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+```
+
+
+
+```{r correlation MC orders, echo=FALSE}
+
+highchart(type = "stock") %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3),
+    list(showLastLabel = TRUE, opposite = TRUE))%>%
+  
+  hc_add_series(df_mc_o, "area", hcaes(date, total_cost), name = "Media Investment", yAxis = 1) %>% 
+  hc_add_series(df_mc_o, "line", hcaes(date, orders), name = "orders")%>% 
+  hc_title(text = "Correlation ρMedia Investment & Orders, MC",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+  hc_subtitle(text = c_mc_o,
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+
+
+```
+
+Correlation Matrix BBW {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+
+```{r cor BBW, echo=FALSE}
+
+newdatacor = cor(dff_c[3:12])
+corrplot(newdatacor, method = "number")
+
+```
+
+Correlation Matrix VS {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r cor VS, echo=FALSE}
+
+newdatacor = cor(dff_vs[3:12])
+corrplot(newdatacor, method = "number")
+
+```
+
+
+Correlation Matrix HM {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+
+```{r cor HM, echo=FALSE}
+
+newdatacor = cor(df_hm_v[3:12])
+corrplot(newdatacor, method = "number")
+
+```
+
+Correlation Matrix MC {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r cor MC, echo=FALSE}
+
+newdatacor = cor(df_mc_v[3:12])
+corrplot(newdatacor, method = "number")
+
+```
+
+Trend BBW {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r cor Prophet BBW, echo=TRUE}
+plot(mb, forecastb) #BBW AutoRegressive Moving Average.
+
+prophet_plot_components(mb, forecastb, uncertainty = TRUE, plot_cap = TRUE,
+  weekly_start = 0, yearly_start = 0, render_plot = TRUE)
+
+```
+
+Trend VS {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r cor Prophet VS, echo=TRUE}
+plot(ms, forecast)#VS AutoRegressive Moving Average.
+
+prophet_plot_components(ms, forecast, uncertainty = TRUE, plot_cap = TRUE,
+  weekly_start = 0, yearly_start = 0, render_plot = TRUE)
+
+```
+
+Trend HM {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r cor Prophet HM, echo=TRUE}
+plot(mh, forecasthm,)#HM AutoRegressive Moving Average.
+
+prophet_plot_components(mh, forecasthm, uncertainty = TRUE, plot_cap = TRUE,
+  weekly_start = 0, yearly_start = 0, render_plot = TRUE)
+
+```
+
+
+Trend MC {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r cor Prophet MC, echo=TRUE}
+plot(mc, forecastmc,)#MC AutoRegressive Moving Average.
+
+prophet_plot_components(mc, forecastmc, uncertainty = TRUE, plot_cap = TRUE,
+  weekly_start = 0, yearly_start = 0, render_plot = TRUE)
+
+```
+
+
+Response Curve BBW {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r Hill ATTACH BBW, include=FALSE}
+
+attach(dff_c)
+
+```
+
+```{r Hill Scatter EDA, echo=TRUE}
+
+hchart(dff_c, "scatter", hcaes(x = total_cost, y = orders))
+
+```
+
+
+```{r Hill Calculation, include=FALSE}
+
+attach(dff_c)
+
+m.hill_b <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_b)
+
+hill_b <- plot(m.hill_b, broken = TRUE, type = "all",
+     xlab = "Media Spend", xlim = c(100, 10000),
+     ylab = "Orders", col="blue")
+
+
+colnames(hill_b) <- c("total_cost", "orders")
+
+```
+
+```{r Plot Hill BBW, echo=TRUE}
+
+#Y <- K/(1+exp(-(α+β*x)))
+hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
+
+```
+
+Response Curve VS {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r Hill ATTACH VS, include=FALSE}
+
+attach(dff_vs)
+
+```
+
+```{r Hill Scatter EDA VS, echo=TRUE}
+
+hchart(dff_vs, "scatter", hcaes(x = total_cost, y = orders))
+
+```
+
+
+
+```{r Hill Calculation VS, include=FALSE}
+
+attach(dff_vs)
+
+m.hill_v <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_v)
+
+hill_v <- plot(m.hill_v, broken = TRUE, type = "all",
+     xlab = "Media Spend", xlim = c(100, 10000),
+     ylab = "Orders", col="blue")
+
+
+colnames(hill_v) <- c("total_cost", "orders")
+
+```
+
+```{r Plot Hill VS, echo=TRUE}
+#Y <- K/(1+exp(-(α+β*x))) 
+hchart(hill_v, "line", hcaes(x = total_cost, y = orders))
+```
+
+
+Response Curve HM {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r Hill ATTACH HM, include=FALSE}
+
+attach(df_hm_o)
+
+```
+
+```{r Hill Scatter EDA HM, echo=TRUE}
+
+hchart(df_hm_o, "scatter", hcaes(x = total_cost, y = orders))
+
+```
+
+
+```{r Hill Calculation HM, include=FALSE}
+
+attach(df_hm)
+
+m.hill_hm <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_hm)
+
+hill_hm <- plot(m.hill_hm, broken = TRUE, type = "all",
+     xlab = "Media Spend", xlim = c(100, 10000),
+     ylab = "Orders", col="blue")
+
+
+colnames(hill_hm) <- c("total_cost", "orders")
+
+```
+
+```{r Plot Hill HM, echo=TRUE}
+#Y <- K/(1+exp(-(α+β*x))) 
+hchart(hill_hm, "line", hcaes(x = total_cost, y = orders))
+```
+
+Response Curve MC {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r Hill ATTACH MC, include=FALSE}
+
+attach(df_mc_o)
+
+```
+
+```{r Hill Scatter EDA MC, echo=TRUE}
+
+hchart(df_mc_o, "scatter", hcaes(x = total_cost, y = orders))
+
+```
+
+```{r Hill Calculation MC, include=FALSE}
+
+attach(df_mc_o)
+
+m.hill_mc <- drm(orders ~ total_cost, fct = LL.5())
+summary(m.hill_mc)
+
+hill_mc <- plot(m.hill_mc, broken = TRUE, type = "all",
+     xlab = "Media Spend", xlim = c(100, 10000),
+     ylab = "Orders", col="blue")
+
+
+colnames(hill_mc) <- c("total_cost", "orders")
+
+```
+
+```{r Plot Hill MC, echo=TRUE}
+#Y <- K/(1+exp(-(α+β*x))) 
+hchart(hill_mc, "line", hcaes(x = total_cost, y = orders))
+```
+
+
+CPO | CPA - evolution BBW {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+
+```{r CPO Bar, echo=FALSE}
+
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_mb$month_id) %>%
+    hc_add_series(name="CPO",data = df_mb$CPO) %>%
+  hc_add_series(name="CPA",data = df_mb$CPA)
+
+```
+
+CPO | CPA - evolution VS {.tabset data-width=400}
+----------------------------------------------------------------------
+
+```{r CPO Bar VS, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_mv$month_id) %>%
+    hc_add_series(name="CPO",data = df_mv$CPO) %>%
+  hc_add_series(name="CPA",data = df_mv$CPA)
+
+```
+
+
+CPO | CPA - evolution HM {.tabset data-width=400}
+----------------------------------------------------------------------
+
+```{r CPO Bar HM, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_hm_cpo$month_id) %>%
+    hc_add_series(name="CPO",data = df_hm_cpo$CPO) %>%
+  hc_add_series(name="CPA",data = df_hm_cpo$CPA)
+
+```
+
+
+CPO | CPA - evolution MC {.tabset data-width=400}
+----------------------------------------------------------------------
+
+```{r CPO Bar MC, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_mc_cpo$month_id) %>%
+    hc_add_series(name="CPO",data = df_mc_cpo$CPO) %>%
+  hc_add_series(name="CPA",data = df_mc_cpo$CPA)
+
+```
+
+
+CPO | CPA - evolution PB {.tabset data-width=400}
+----------------------------------------------------------------------
+
+```{r CPO Bar PB, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_pb_cpo$month_id) %>%
+    hc_add_series(name="CPO",data = df_pb_cpo$CPO) %>%
+  hc_add_series(name="CPA",data = df_pb_cpo$CPA)
+
+```
+
+
+CPO | CPA - evolution FL {.tabset data-width=400}
+----------------------------------------------------------------------
+
+```{r CPO Bar FL, echo=FALSE}
+highchart() %>% 
+    hc_chart(type = "column") %>%
+    hc_xAxis(categories = df_fl_cpo$month_id) %>%
+    hc_add_series(name="CPO",data = df_fl_cpo$CPO) %>%
+  hc_add_series(name="CPA",data = df_fl_cpo$CPA)
+
+```
+
+
+Cohorts Heatmap HM  {.tabset data-width=400}
+----------------------------------------------------------------------
+
+```{r Cohorts HM, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query =("With step_1 as (
+  Select
+  customer_email as user_id,
+  date(created_at) as order_date,
+  increment_id as order_id
+  FROM `authentic-codex-225113.magento_hm.orders` order by 1,2 asc
+),
+ 
+ step_2 as(
+  Select
+  user_id,
+  order_date,
+  order_id,
+  CASE user_id
+    WHEN LAG(user_id) OVER (order by 1,2 asc) THEN First_value(order_date) OVER (partition by user_id order by 1,2 asc)
+    ELSE order_date
+    END
+  as acquisition_date
+  from step_1
+  ),
+
+step_3 as (
+Select
+user_id,
+order_date,
+order_id,
+acquisition_date,
+date_diff(order_date,acquisition_date,DAY) as repeat_after_days,
+concat(cast(format_date('%E4Y', cast(acquisition_date as date)) as string),'-',cast(format_date('%m', cast(acquisition_date as date)) as string)) as cohort
+from step_2
+),
+
+
+repeat_cohort_numbers as (
+select
+cohort,
+count(distinct user_id) as users,
+countif(repeat_after_days <= 30)-count(distinct user_id) as repeat_m0,
+countif(repeat_after_days<= 60 AND repeat_after_days > 30) as repeat_m1,
+countif(repeat_after_days<= 90 AND repeat_after_days > 60) as repeat_m2,
+countif(repeat_after_days<= 120 AND repeat_after_days > 90) as repeat_m3,
+countif(repeat_after_days<= 150 AND repeat_after_days > 120) as repeat_m4,
+countif(repeat_after_days<= 180 AND repeat_after_days > 150) as repeat_m5,
+countif(repeat_after_days<= 210 AND repeat_after_days > 180) as repeat_m6,
+countif(repeat_after_days<= 240 AND repeat_after_days > 210) as repeat_m7,
+countif(repeat_after_days<= 270 AND repeat_after_days > 240) as repeat_m8,
+countif(repeat_after_days<= 300 AND repeat_after_days > 270) as repeat_m9,
+countif(repeat_after_days<= 330 AND repeat_after_days > 300) as repeat_m10,
+countif(repeat_after_days<= 360 AND repeat_after_days > 330) as repeat_m11,
+countif(repeat_after_days<= 390 AND repeat_after_days > 360) as repeat_m12,
+countif(repeat_after_days<= 420 AND repeat_after_days > 390) as repeat_m13,
+countif(repeat_after_days<= 450 AND repeat_after_days > 420) as repeat_m14,
+countif(repeat_after_days<= 480 AND repeat_after_days > 450) as repeat_m15,
+countif(repeat_after_days<= 510 AND repeat_after_days > 480) as repeat_m16,
+countif(repeat_after_days<= 540 AND repeat_after_days > 510) as repeat_m17,
+countif(repeat_after_days<= 570 AND repeat_after_days > 540) as repeat_m18,
+countif(repeat_after_days<= 600 AND repeat_after_days > 570) as repeat_m19,
+countif(repeat_after_days<= 630 AND repeat_after_days > 600) as repeat_m20,
+countif(repeat_after_days<= 660 AND repeat_after_days > 630) as repeat_m21,
+countif(repeat_after_days<= 690 AND repeat_after_days > 660) as repeat_m22,
+countif(repeat_after_days<= 720 AND repeat_after_days > 690) as repeat_m23,
+countif(repeat_after_days<= 750 AND repeat_after_days > 720) as repeat_m24,
+countif(repeat_after_days<= 780 AND repeat_after_days > 750) as repeat_m25,
+countif(repeat_after_days<= 810 AND repeat_after_days > 780) as repeat_m26,
+countif(repeat_after_days<= 840 AND repeat_after_days > 810) as repeat_m27,
+countif(repeat_after_days<= 870 AND repeat_after_days > 840) as repeat_m28,
+countif(repeat_after_days<= 900 AND repeat_after_days > 870) as repeat_m29,
+countif(repeat_after_days<= 930 AND repeat_after_days > 900) as repeat_m30
+from step_3
+group by cohort order by cohort asc
+)
+
+-- Cohort behaviour (by percentage) table --
+select
+cohort,
+users,
+repeat_m0/users as m0_order_percent,
+repeat_m1/users as m1_order_percent,
+repeat_m2/users as m2_order_percent,
+repeat_m3/users as m3_order_percent,
+repeat_m4/users as m4_order_percent,
+repeat_m5/users as m5_order_percent,
+repeat_m6/users as m6_order_percent,
+repeat_m7/users as m7_order_percent,
+repeat_m8/users as m8_order_percent,
+repeat_m9/users as m9_order_percent,
+repeat_m10/users as m10_order_percent,
+repeat_m11/users as m11_order_percent,
+repeat_m12/users as m12_order_percent,
+repeat_m13/users as m13_order_percent,
+repeat_m14/users as m14_order_percent,
+repeat_m15/users as m15_order_percent,
+repeat_m16/users as m16_order_percent,
+repeat_m17/users as m17_order_percent,
+repeat_m18/users as m18_order_percent,
+repeat_m19/users as m19_order_percent,
+repeat_m20/users as m20_order_percent,
+repeat_m21/users as m21_order_percent,
+repeat_m22/users as m22_order_percent,
+repeat_m23/users as m23_order_percent,
+repeat_m24/users as m24_order_percent,
+repeat_m25/users as m25_order_percent,
+repeat_m26/users as m26_order_percent,
+repeat_m27/users as m27_order_percent,
+repeat_m28/users as m28_order_percent,
+repeat_m29/users as m29_order_percent,
+repeat_m30/users as m30_order_percent
+from repeat_cohort_numbers")
+
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+cohorts_hm = bq_table_download(offence_qtr)
+
+#Create a matrix
+temp = as.matrix(cohorts_hm[,3:(length(cohorts_hm[1,])-1)])
+colnames(temp) = paste('Month', 0:(length(temp[1,])-1), sep=' ')
+rownames(temp) = as.vector(cohorts_hm$cohort)
+
+```
+
+
+```{r  cohorts HM, echo=FALSE}
+
+trace1 <- list(
+  type = "heatmap", 
+  y=cohorts_hm$cohort,
+  z = temp
+  
+)
+
+
+data <- list(trace1)
+layout <- list(title = "c.hm")
+p <- plot_ly()
+p <- add_trace(p, type=trace1$type, y=cohorts_hm$cohort, z=trace1$z, colorscale=trace1$colorscale)
+p <- layout(p, title=layout$title)
+
+p
+
+```
+
+
+
+Cohorts Heatmap HM  {.tabset data-width=400}
+----------------------------------------------------------------------
+
+```{r Cohorts bbw, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query =("With step_1 as (
+  Select
+  customer_email as user_id,
+  date(created_at) as order_date,
+  increment_id as order_id
+  FROM `authentic-codex-225113.magento_bbw.orders` order by 1,2 asc
+),
+ 
+ step_2 as(
+  Select
+  user_id,
+  order_date,
+  order_id,
+  CASE user_id
+    WHEN LAG(user_id) OVER (order by 1,2 asc) THEN First_value(order_date) OVER (partition by user_id order by 1,2 asc)
+    ELSE order_date
+    END
+  as acquisition_date
+  from step_1
+  ),
+
+step_3 as (
+Select
+user_id,
+order_date,
+order_id,
+acquisition_date,
+date_diff(order_date,acquisition_date,DAY) as repeat_after_days,
+concat(cast(format_date('%E4Y', cast(acquisition_date as date)) as string),'-',cast(format_date('%m', cast(acquisition_date as date)) as string)) as cohort
+from step_2
+),
+
+
+repeat_cohort_numbers as (
+select
+cohort,
+count(distinct user_id) as users,
+countif(repeat_after_days <= 30)-count(distinct user_id) as repeat_m0,
+countif(repeat_after_days<= 60 AND repeat_after_days > 30) as repeat_m1,
+countif(repeat_after_days<= 90 AND repeat_after_days > 60) as repeat_m2,
+countif(repeat_after_days<= 120 AND repeat_after_days > 90) as repeat_m3,
+countif(repeat_after_days<= 150 AND repeat_after_days > 120) as repeat_m4,
+countif(repeat_after_days<= 180 AND repeat_after_days > 150) as repeat_m5,
+countif(repeat_after_days<= 210 AND repeat_after_days > 180) as repeat_m6,
+countif(repeat_after_days<= 240 AND repeat_after_days > 210) as repeat_m7,
+countif(repeat_after_days<= 270 AND repeat_after_days > 240) as repeat_m8,
+countif(repeat_after_days<= 300 AND repeat_after_days > 270) as repeat_m9,
+countif(repeat_after_days<= 330 AND repeat_after_days > 300) as repeat_m10,
+countif(repeat_after_days<= 360 AND repeat_after_days > 330) as repeat_m11,
+countif(repeat_after_days<= 390 AND repeat_after_days > 360) as repeat_m12,
+countif(repeat_after_days<= 420 AND repeat_after_days > 390) as repeat_m13,
+countif(repeat_after_days<= 450 AND repeat_after_days > 420) as repeat_m14,
+countif(repeat_after_days<= 480 AND repeat_after_days > 450) as repeat_m15,
+countif(repeat_after_days<= 510 AND repeat_after_days > 480) as repeat_m16,
+countif(repeat_after_days<= 540 AND repeat_after_days > 510) as repeat_m17,
+countif(repeat_after_days<= 570 AND repeat_after_days > 540) as repeat_m18,
+countif(repeat_after_days<= 600 AND repeat_after_days > 570) as repeat_m19,
+countif(repeat_after_days<= 630 AND repeat_after_days > 600) as repeat_m20,
+countif(repeat_after_days<= 660 AND repeat_after_days > 630) as repeat_m21,
+countif(repeat_after_days<= 690 AND repeat_after_days > 660) as repeat_m22,
+countif(repeat_after_days<= 720 AND repeat_after_days > 690) as repeat_m23,
+countif(repeat_after_days<= 750 AND repeat_after_days > 720) as repeat_m24,
+countif(repeat_after_days<= 780 AND repeat_after_days > 750) as repeat_m25,
+countif(repeat_after_days<= 810 AND repeat_after_days > 780) as repeat_m26,
+countif(repeat_after_days<= 840 AND repeat_after_days > 810) as repeat_m27,
+countif(repeat_after_days<= 870 AND repeat_after_days > 840) as repeat_m28,
+countif(repeat_after_days<= 900 AND repeat_after_days > 870) as repeat_m29,
+countif(repeat_after_days<= 930 AND repeat_after_days > 900) as repeat_m30
+from step_3
+group by cohort order by cohort asc
+)
+
+-- Cohort behaviour (by percentage) table --
+select
+cohort,
+users,
+repeat_m0/users as m0_order_percent,
+repeat_m1/users as m1_order_percent,
+repeat_m2/users as m2_order_percent,
+repeat_m3/users as m3_order_percent,
+repeat_m4/users as m4_order_percent,
+repeat_m5/users as m5_order_percent,
+repeat_m6/users as m6_order_percent,
+repeat_m7/users as m7_order_percent,
+repeat_m8/users as m8_order_percent,
+repeat_m9/users as m9_order_percent,
+repeat_m10/users as m10_order_percent,
+repeat_m11/users as m11_order_percent,
+repeat_m12/users as m12_order_percent,
+repeat_m13/users as m13_order_percent,
+repeat_m14/users as m14_order_percent,
+repeat_m15/users as m15_order_percent,
+repeat_m16/users as m16_order_percent,
+repeat_m17/users as m17_order_percent,
+repeat_m18/users as m18_order_percent,
+repeat_m19/users as m19_order_percent,
+repeat_m20/users as m20_order_percent,
+repeat_m21/users as m21_order_percent,
+repeat_m22/users as m22_order_percent,
+repeat_m23/users as m23_order_percent,
+repeat_m24/users as m24_order_percent,
+repeat_m25/users as m25_order_percent,
+repeat_m26/users as m26_order_percent,
+repeat_m27/users as m27_order_percent,
+repeat_m28/users as m28_order_percent,
+repeat_m29/users as m29_order_percent,
+repeat_m30/users as m30_order_percent
+from repeat_cohort_numbers")
+
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+cohorts_bbw = bq_table_download(offence_qtr)
+
+#Create a matrix
+temp = as.matrix(cohorts_hm[,3:(length(cohorts_bbw[1,])-1)])
+colnames(temp) = paste('Month', 0:(length(temp[1,])-1), sep=' ')
+rownames(temp) = as.vector(cohorts_bbw$cohort)
+
+```
+
+
+```{r  cohorts BBW, echo=FALSE}
+
+trace1 <- list(
+  type = "heatmap", 
+  y=cohorts_bbw$cohort,
+  z = temp
+  
+)
+
+
+data <- list(trace1)
+layout <- list(title = "c.bbw")
+p <- plot_ly()
+p <- add_trace(p, type=trace1$type, y=cohorts_bbw$cohort, z=trace1$z, colorscale=trace1$colorscale)
+p <- layout(p, title=layout$title)
+
+p
+
+```
+
+Please do not circulate prior consent.
