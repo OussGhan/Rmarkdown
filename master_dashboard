@@ -128,7 +128,7 @@ df_all_f$brand_ctb <-(df_all_f$revenue*df_all_f$store_ctb)-df_all_f$mkt_investme
 
 
 ```{r All B P&L table, echo=FALSE}
-kable(df_all_f,digits=2, align=rep('c', 8) ,format.args = list(big.mark = ",")) %>%
+kable(df_all_f,digits=2, align=rep('c', 8) , format.args = list(big.mark = ",")) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
   
 ```
@@ -2601,6 +2601,49 @@ rownames(temp) = as.vector(cohorts_hm$cohort)
 ```
 
 
+```{r HM LTV cohorts, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue,
+SUM(all_customers) as cst
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'hm'
+
+group by
+1
+
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_hm_ltv = bq_table_download(offence_qtr)
+
+
+hm_ltv <- df_hm_ltv$revenue/df_hm_ltv$cst  
+
+```
+
+
+
 ```{r  cohorts HM, echo=FALSE}
 
 trace1 <- list(
@@ -2610,20 +2653,28 @@ trace1 <- list(
   
 )
 
+x <- list(
+  title = "Month after 1st Purchase"
+)
+y <- list(
+  title = "First Purchase"
+)
 
 data <- list(trace1)
-layout <- list(title = "c.hm")
+layout <- list(title = paste("LTV $",round(hm_ltv, digits =0)))
+
 p <- plot_ly()
 p <- add_trace(p, type=trace1$type, y=cohorts_hm$cohort, z=trace1$z, colorscale=trace1$colorscale)
-p <- layout(p, title=layout$title)
+p <- layout(p, title=layout$title, xaxis = x, yaxis = y)
 
 p
+
 
 ```
 
 
 
-Cohorts Heatmap HM  {.tabset data-width=400}
+Cohorts Heatmap BBW  {.tabset data-width=400}
 ----------------------------------------------------------------------
 
 ```{r Cohorts bbw, include=FALSE}
@@ -2756,11 +2807,54 @@ offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
 cohorts_bbw = bq_table_download(offence_qtr)
 
 #Create a matrix
-temp = as.matrix(cohorts_hm[,3:(length(cohorts_bbw[1,])-1)])
+temp = as.matrix(cohorts_bbw[,3:(length(cohorts_bbw[1,])-1)])
 colnames(temp) = paste('Month', 0:(length(temp[1,])-1), sep=' ')
 rownames(temp) = as.vector(cohorts_bbw$cohort)
 
 ```
+
+```{r BBW LTV cohorts, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue,
+SUM(all_customers) as cst
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'bbw' 
+
+group by
+1
+
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_bbw_ltv = bq_table_download(offence_qtr)
+
+
+bbw_ltv <- df_bbw_ltv$revenue/df_bbw_ltv$cst  
+
+```
+
+
 
 
 ```{r  cohorts BBW, echo=FALSE}
@@ -2772,15 +2866,651 @@ trace1 <- list(
   
 )
 
+x <- list(
+  title = "Month after 1st Purchase"
+)
+y <- list(
+  title = "First Purchase"
+)
+
 
 data <- list(trace1)
-layout <- list(title = "c.bbw")
+layout <- list(title = paste("LTV $", round(bbw_ltv, digits =0)))
 p <- plot_ly()
 p <- add_trace(p, type=trace1$type, y=cohorts_bbw$cohort, z=trace1$z, colorscale=trace1$colorscale)
-p <- layout(p, title=layout$title)
+p <- layout(p, title=layout$title, xaxis = x, yaxis = y)
 
 p
 
 ```
+
+
+Cohorts Heatmap MC  {.tabset data-width=400}
+----------------------------------------------------------------------
+  
+```{r Cohorts MC, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query =("With step_1 as (
+  Select
+  customer_email as user_id,
+  date(created_at) as order_date,
+  increment_id as order_id
+  FROM `authentic-codex-225113.magento_mcmena.orders` order by 1,2 asc
+),
+ 
+ step_2 as(
+  Select
+  user_id,
+  order_date,
+  order_id,
+  CASE user_id
+    WHEN LAG(user_id) OVER (order by 1,2 asc) THEN First_value(order_date) OVER (partition by user_id order by 1,2 asc)
+    ELSE order_date
+    END
+  as acquisition_date
+  from step_1
+  ),
+
+step_3 as (
+Select
+user_id,
+order_date,
+order_id,
+acquisition_date,
+date_diff(order_date,acquisition_date,DAY) as repeat_after_days,
+concat(cast(format_date('%E4Y', cast(acquisition_date as date)) as string),'-',cast(format_date('%m', cast(acquisition_date as date)) as string)) as cohort
+from step_2
+),
+
+
+repeat_cohort_numbers as (
+select
+cohort,
+count(distinct user_id) as users,
+countif(repeat_after_days <= 30)-count(distinct user_id) as repeat_m0,
+countif(repeat_after_days<= 60 AND repeat_after_days > 30) as repeat_m1,
+countif(repeat_after_days<= 90 AND repeat_after_days > 60) as repeat_m2,
+countif(repeat_after_days<= 120 AND repeat_after_days > 90) as repeat_m3,
+countif(repeat_after_days<= 150 AND repeat_after_days > 120) as repeat_m4,
+countif(repeat_after_days<= 180 AND repeat_after_days > 150) as repeat_m5,
+countif(repeat_after_days<= 210 AND repeat_after_days > 180) as repeat_m6,
+countif(repeat_after_days<= 240 AND repeat_after_days > 210) as repeat_m7,
+countif(repeat_after_days<= 270 AND repeat_after_days > 240) as repeat_m8,
+countif(repeat_after_days<= 300 AND repeat_after_days > 270) as repeat_m9,
+countif(repeat_after_days<= 330 AND repeat_after_days > 300) as repeat_m10,
+countif(repeat_after_days<= 360 AND repeat_after_days > 330) as repeat_m11,
+countif(repeat_after_days<= 390 AND repeat_after_days > 360) as repeat_m12,
+countif(repeat_after_days<= 420 AND repeat_after_days > 390) as repeat_m13,
+countif(repeat_after_days<= 450 AND repeat_after_days > 420) as repeat_m14,
+countif(repeat_after_days<= 480 AND repeat_after_days > 450) as repeat_m15,
+countif(repeat_after_days<= 510 AND repeat_after_days > 480) as repeat_m16,
+countif(repeat_after_days<= 540 AND repeat_after_days > 510) as repeat_m17,
+countif(repeat_after_days<= 570 AND repeat_after_days > 540) as repeat_m18,
+countif(repeat_after_days<= 600 AND repeat_after_days > 570) as repeat_m19,
+countif(repeat_after_days<= 630 AND repeat_after_days > 600) as repeat_m20,
+countif(repeat_after_days<= 660 AND repeat_after_days > 630) as repeat_m21,
+countif(repeat_after_days<= 690 AND repeat_after_days > 660) as repeat_m22,
+countif(repeat_after_days<= 720 AND repeat_after_days > 690) as repeat_m23,
+countif(repeat_after_days<= 750 AND repeat_after_days > 720) as repeat_m24,
+countif(repeat_after_days<= 780 AND repeat_after_days > 750) as repeat_m25,
+countif(repeat_after_days<= 810 AND repeat_after_days > 780) as repeat_m26,
+countif(repeat_after_days<= 840 AND repeat_after_days > 810) as repeat_m27,
+countif(repeat_after_days<= 870 AND repeat_after_days > 840) as repeat_m28,
+countif(repeat_after_days<= 900 AND repeat_after_days > 870) as repeat_m29,
+countif(repeat_after_days<= 930 AND repeat_after_days > 900) as repeat_m30
+from step_3
+group by cohort order by cohort asc
+)
+
+-- Cohort behaviour (by percentage) table --
+select
+cohort,
+users,
+repeat_m0/users as m0_order_percent,
+repeat_m1/users as m1_order_percent,
+repeat_m2/users as m2_order_percent,
+repeat_m3/users as m3_order_percent,
+repeat_m4/users as m4_order_percent,
+repeat_m5/users as m5_order_percent,
+repeat_m6/users as m6_order_percent,
+repeat_m7/users as m7_order_percent,
+repeat_m8/users as m8_order_percent,
+repeat_m9/users as m9_order_percent,
+repeat_m10/users as m10_order_percent,
+repeat_m11/users as m11_order_percent,
+repeat_m12/users as m12_order_percent,
+repeat_m13/users as m13_order_percent,
+repeat_m14/users as m14_order_percent,
+repeat_m15/users as m15_order_percent,
+repeat_m16/users as m16_order_percent,
+repeat_m17/users as m17_order_percent,
+repeat_m18/users as m18_order_percent,
+repeat_m19/users as m19_order_percent,
+repeat_m20/users as m20_order_percent,
+repeat_m21/users as m21_order_percent,
+repeat_m22/users as m22_order_percent,
+repeat_m23/users as m23_order_percent,
+repeat_m24/users as m24_order_percent,
+repeat_m25/users as m25_order_percent,
+repeat_m26/users as m26_order_percent,
+repeat_m27/users as m27_order_percent,
+repeat_m28/users as m28_order_percent,
+repeat_m29/users as m29_order_percent,
+repeat_m30/users as m30_order_percent
+from repeat_cohort_numbers")
+
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+cohorts_mc = bq_table_download(offence_qtr)
+
+#Create a matrix
+temp = as.matrix(cohorts_mc[,3:(length(cohorts_mc[1,])-1)])
+colnames(temp) = paste('Month', 0:(length(temp[1,])-1), sep=' ')
+rownames(temp) = as.vector(cohorts_mc$cohort)
+
+```
+
+```{r MC LTV cohorts, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue,
+SUM(all_customers) as cst
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'mc'
+
+group by
+1
+
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_mc_ltv = bq_table_download(offence_qtr)
+
+
+mc_ltv <- df_mc_ltv$revenue/df_mc_ltv$cst  
+
+```
+
+
+```{r  cohorts MC, echo=FALSE}
+
+trace1 <- list(
+  type = "heatmap", 
+  y=cohorts_mc$cohort,
+  z = temp
+  
+)
+
+x <- list(
+  title = "Month after 1st Purchase"
+)
+y <- list(
+  title = "First Purchase"
+)
+
+
+data <- list(trace1)
+layout <- list(title = paste("LTV $", round(mc_ltv, digits =0)))
+p <- plot_ly()
+p <- add_trace(p, type=trace1$type, y=cohorts_mc$cohort, z=trace1$z, colorscale=trace1$colorscale)
+p <- layout(p, title=layout$title, xaxis = x, yaxis = y)
+
+p
+
+```
+
+
+
+Cohorts Heatmap VS  {.tabset data-width=400}
+----------------------------------------------------------------------
+  
+```{r Cohorts VS, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query =("With step_1 as (
+  Select
+  customer_email as user_id,
+  date(created_at) as order_date,
+  increment_id as order_id
+  FROM `authentic-codex-225113.magento_vs.orders` order by 1,2 asc
+),
+ 
+ step_2 as(
+  Select
+  user_id,
+  order_date,
+  order_id,
+  CASE user_id
+    WHEN LAG(user_id) OVER (order by 1,2 asc) THEN First_value(order_date) OVER (partition by user_id order by 1,2 asc)
+    ELSE order_date
+    END
+  as acquisition_date
+  from step_1
+  ),
+
+step_3 as (
+Select
+user_id,
+order_date,
+order_id,
+acquisition_date,
+date_diff(order_date,acquisition_date,DAY) as repeat_after_days,
+concat(cast(format_date('%E4Y', cast(acquisition_date as date)) as string),'-',cast(format_date('%m', cast(acquisition_date as date)) as string)) as cohort
+from step_2
+),
+
+
+repeat_cohort_numbers as (
+select
+cohort,
+count(distinct user_id) as users,
+countif(repeat_after_days <= 30)-count(distinct user_id) as repeat_m0,
+countif(repeat_after_days<= 60 AND repeat_after_days > 30) as repeat_m1,
+countif(repeat_after_days<= 90 AND repeat_after_days > 60) as repeat_m2,
+countif(repeat_after_days<= 120 AND repeat_after_days > 90) as repeat_m3,
+countif(repeat_after_days<= 150 AND repeat_after_days > 120) as repeat_m4,
+countif(repeat_after_days<= 180 AND repeat_after_days > 150) as repeat_m5,
+countif(repeat_after_days<= 210 AND repeat_after_days > 180) as repeat_m6,
+countif(repeat_after_days<= 240 AND repeat_after_days > 210) as repeat_m7,
+countif(repeat_after_days<= 270 AND repeat_after_days > 240) as repeat_m8,
+countif(repeat_after_days<= 300 AND repeat_after_days > 270) as repeat_m9,
+countif(repeat_after_days<= 330 AND repeat_after_days > 300) as repeat_m10,
+countif(repeat_after_days<= 360 AND repeat_after_days > 330) as repeat_m11,
+countif(repeat_after_days<= 390 AND repeat_after_days > 360) as repeat_m12,
+countif(repeat_after_days<= 420 AND repeat_after_days > 390) as repeat_m13,
+countif(repeat_after_days<= 450 AND repeat_after_days > 420) as repeat_m14,
+countif(repeat_after_days<= 480 AND repeat_after_days > 450) as repeat_m15,
+countif(repeat_after_days<= 510 AND repeat_after_days > 480) as repeat_m16,
+countif(repeat_after_days<= 540 AND repeat_after_days > 510) as repeat_m17,
+countif(repeat_after_days<= 570 AND repeat_after_days > 540) as repeat_m18,
+countif(repeat_after_days<= 600 AND repeat_after_days > 570) as repeat_m19,
+countif(repeat_after_days<= 630 AND repeat_after_days > 600) as repeat_m20,
+countif(repeat_after_days<= 660 AND repeat_after_days > 630) as repeat_m21,
+countif(repeat_after_days<= 690 AND repeat_after_days > 660) as repeat_m22,
+countif(repeat_after_days<= 720 AND repeat_after_days > 690) as repeat_m23,
+countif(repeat_after_days<= 750 AND repeat_after_days > 720) as repeat_m24,
+countif(repeat_after_days<= 780 AND repeat_after_days > 750) as repeat_m25,
+countif(repeat_after_days<= 810 AND repeat_after_days > 780) as repeat_m26,
+countif(repeat_after_days<= 840 AND repeat_after_days > 810) as repeat_m27,
+countif(repeat_after_days<= 870 AND repeat_after_days > 840) as repeat_m28,
+countif(repeat_after_days<= 900 AND repeat_after_days > 870) as repeat_m29,
+countif(repeat_after_days<= 930 AND repeat_after_days > 900) as repeat_m30
+from step_3
+group by cohort order by cohort asc
+)
+
+-- Cohort behaviour (by percentage) table --
+select
+cohort,
+users,
+repeat_m0/users as m0_order_percent,
+repeat_m1/users as m1_order_percent,
+repeat_m2/users as m2_order_percent,
+repeat_m3/users as m3_order_percent,
+repeat_m4/users as m4_order_percent,
+repeat_m5/users as m5_order_percent,
+repeat_m6/users as m6_order_percent,
+repeat_m7/users as m7_order_percent,
+repeat_m8/users as m8_order_percent,
+repeat_m9/users as m9_order_percent,
+repeat_m10/users as m10_order_percent,
+repeat_m11/users as m11_order_percent,
+repeat_m12/users as m12_order_percent,
+repeat_m13/users as m13_order_percent,
+repeat_m14/users as m14_order_percent,
+repeat_m15/users as m15_order_percent,
+repeat_m16/users as m16_order_percent,
+repeat_m17/users as m17_order_percent,
+repeat_m18/users as m18_order_percent,
+repeat_m19/users as m19_order_percent,
+repeat_m20/users as m20_order_percent,
+repeat_m21/users as m21_order_percent,
+repeat_m22/users as m22_order_percent,
+repeat_m23/users as m23_order_percent,
+repeat_m24/users as m24_order_percent,
+repeat_m25/users as m25_order_percent,
+repeat_m26/users as m26_order_percent,
+repeat_m27/users as m27_order_percent,
+repeat_m28/users as m28_order_percent,
+repeat_m29/users as m29_order_percent,
+repeat_m30/users as m30_order_percent
+from repeat_cohort_numbers")
+
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+cohorts_vs = bq_table_download(offence_qtr)
+
+#Create a matrix
+temp = as.matrix(cohorts_vs[,3:(length(cohorts_vs[1,])-1)])
+colnames(temp) = paste('Month', 0:(length(temp[1,])-1), sep=' ')
+rownames(temp) = as.vector(cohorts_vs$cohort)
+
+```
+
+```{r VS LTV cohorts, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue,
+SUM(all_customers) as cst
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'vs' 
+
+group by
+1
+
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_vs_ltv = bq_table_download(offence_qtr)
+
+
+vs_ltv <- df_vs_ltv$revenue/df_vs_ltv$cst  
+
+```
+
+
+```{r  cohorts VS, echo=FALSE}
+
+trace1 <- list(
+  type = "heatmap", 
+  y=cohorts_vs$cohort,
+  z = temp
+  
+)
+
+x <- list(
+  title = "Month after 1st Purchase"
+)
+y <- list(
+  title = "First Purchase"
+)
+
+
+data <- list(trace1)
+layout <- list(title = paste("LTV $", round(vs_ltv, digits =0)))
+p <- plot_ly()
+p <- add_trace(p, type=trace1$type, y=cohorts_vs$cohort, z=trace1$z, colorscale=trace1$colorscale)
+p <- layout(p, title=layout$title, xaxis = x, yaxis = y)
+
+p
+
+```
+
+
+Cohorts Heatmap PB  {.tabset data-width=400}
+----------------------------------------------------------------------
+  
+```{r Cohorts PB, include=FALSE}
+
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE
+)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query =("With step_1 as (
+  Select
+  customer_email as user_id,
+  date(created_at) as order_date,
+  increment_id as order_id
+  FROM `authentic-codex-225113.magento_pb.orders` order by 1,2 asc
+),
+ 
+ step_2 as(
+  Select
+  user_id,
+  order_date,
+  order_id,
+  CASE user_id
+    WHEN LAG(user_id) OVER (order by 1,2 asc) THEN First_value(order_date) OVER (partition by user_id order by 1,2 asc)
+    ELSE order_date
+    END
+  as acquisition_date
+  from step_1
+  ),
+
+step_3 as (
+Select
+user_id,
+order_date,
+order_id,
+acquisition_date,
+date_diff(order_date,acquisition_date,DAY) as repeat_after_days,
+concat(cast(format_date('%E4Y', cast(acquisition_date as date)) as string),'-',cast(format_date('%m', cast(acquisition_date as date)) as string)) as cohort
+from step_2
+),
+
+
+repeat_cohort_numbers as (
+select
+cohort,
+count(distinct user_id) as users,
+countif(repeat_after_days <= 30)-count(distinct user_id) as repeat_m0,
+countif(repeat_after_days<= 60 AND repeat_after_days > 30) as repeat_m1,
+countif(repeat_after_days<= 90 AND repeat_after_days > 60) as repeat_m2,
+countif(repeat_after_days<= 120 AND repeat_after_days > 90) as repeat_m3,
+countif(repeat_after_days<= 150 AND repeat_after_days > 120) as repeat_m4,
+countif(repeat_after_days<= 180 AND repeat_after_days > 150) as repeat_m5,
+countif(repeat_after_days<= 210 AND repeat_after_days > 180) as repeat_m6,
+countif(repeat_after_days<= 240 AND repeat_after_days > 210) as repeat_m7,
+countif(repeat_after_days<= 270 AND repeat_after_days > 240) as repeat_m8,
+countif(repeat_after_days<= 300 AND repeat_after_days > 270) as repeat_m9,
+countif(repeat_after_days<= 330 AND repeat_after_days > 300) as repeat_m10,
+countif(repeat_after_days<= 360 AND repeat_after_days > 330) as repeat_m11,
+countif(repeat_after_days<= 390 AND repeat_after_days > 360) as repeat_m12,
+countif(repeat_after_days<= 420 AND repeat_after_days > 390) as repeat_m13,
+countif(repeat_after_days<= 450 AND repeat_after_days > 420) as repeat_m14,
+countif(repeat_after_days<= 480 AND repeat_after_days > 450) as repeat_m15,
+countif(repeat_after_days<= 510 AND repeat_after_days > 480) as repeat_m16,
+countif(repeat_after_days<= 540 AND repeat_after_days > 510) as repeat_m17,
+countif(repeat_after_days<= 570 AND repeat_after_days > 540) as repeat_m18,
+countif(repeat_after_days<= 600 AND repeat_after_days > 570) as repeat_m19,
+countif(repeat_after_days<= 630 AND repeat_after_days > 600) as repeat_m20,
+countif(repeat_after_days<= 660 AND repeat_after_days > 630) as repeat_m21,
+countif(repeat_after_days<= 690 AND repeat_after_days > 660) as repeat_m22,
+countif(repeat_after_days<= 720 AND repeat_after_days > 690) as repeat_m23,
+countif(repeat_after_days<= 750 AND repeat_after_days > 720) as repeat_m24,
+countif(repeat_after_days<= 780 AND repeat_after_days > 750) as repeat_m25,
+countif(repeat_after_days<= 810 AND repeat_after_days > 780) as repeat_m26,
+countif(repeat_after_days<= 840 AND repeat_after_days > 810) as repeat_m27,
+countif(repeat_after_days<= 870 AND repeat_after_days > 840) as repeat_m28,
+countif(repeat_after_days<= 900 AND repeat_after_days > 870) as repeat_m29,
+countif(repeat_after_days<= 930 AND repeat_after_days > 900) as repeat_m30
+from step_3
+group by cohort order by cohort asc
+)
+
+-- Cohort behaviour (by percentage) table --
+select
+cohort,
+users,
+repeat_m0/users as m0_order_percent,
+repeat_m1/users as m1_order_percent,
+repeat_m2/users as m2_order_percent,
+repeat_m3/users as m3_order_percent,
+repeat_m4/users as m4_order_percent,
+repeat_m5/users as m5_order_percent,
+repeat_m6/users as m6_order_percent,
+repeat_m7/users as m7_order_percent,
+repeat_m8/users as m8_order_percent,
+repeat_m9/users as m9_order_percent,
+repeat_m10/users as m10_order_percent,
+repeat_m11/users as m11_order_percent,
+repeat_m12/users as m12_order_percent,
+repeat_m13/users as m13_order_percent,
+repeat_m14/users as m14_order_percent,
+repeat_m15/users as m15_order_percent,
+repeat_m16/users as m16_order_percent,
+repeat_m17/users as m17_order_percent,
+repeat_m18/users as m18_order_percent,
+repeat_m19/users as m19_order_percent,
+repeat_m20/users as m20_order_percent,
+repeat_m21/users as m21_order_percent,
+repeat_m22/users as m22_order_percent,
+repeat_m23/users as m23_order_percent,
+repeat_m24/users as m24_order_percent,
+repeat_m25/users as m25_order_percent,
+repeat_m26/users as m26_order_percent,
+repeat_m27/users as m27_order_percent,
+repeat_m28/users as m28_order_percent,
+repeat_m29/users as m29_order_percent,
+repeat_m30/users as m30_order_percent
+from repeat_cohort_numbers")
+
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+cohorts_pb = bq_table_download(offence_qtr)
+
+#Create a matrix
+temp = as.matrix(cohorts_pb[,3:(length(cohorts_pb[1,])-1)])
+colnames(temp) = paste('Month', 0:(length(temp[1,])-1), sep=' ')
+rownames(temp) = as.vector(cohorts_pb$cohort)
+
+```
+
+```{r PB LTV cohorts, include=FALSE}
+
+# BigQuery Auth
+bq_auth(path = "conn.json")
+projectid<-'uts-mdsi'
+datasetid<-'stds_assignment'
+bq_conn <-  dbConnect(bigquery(), 
+                      project = "authentic-codex-225113",
+                      dataset = "monaliza_bi", 
+                      use_legacy_sql = FALSE)
+
+bigrquery::dbListTables(bq_conn)
+
+sql_query = sprintf("
+SELECT
+brand,
+SUM(orders) as orders,
+(SUM(affiliate_cost) + SUM(cost)) as mkt_investment,
+(SUM(affiliate_cost) + SUM(cost)) / sum(orders) as CPO,
+(SUM(affiliate_cost) + SUM(cost)) / sum(new_customers) as CPA,
+SUM(gross_revenue) / SUM(orders) as AOV,
+SUM(gross_revenue) as revenue,
+SUM(all_customers) as cst
+ 
+FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+where brand = 'pb' 
+
+group by
+1
+
+order by 1 asc")
+
+
+offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+df_pb_ltv = bq_table_download(offence_qtr)
+
+
+pb_ltv <- df_pb_ltv$revenue/df_pb_ltv$cst  
+
+```
+
+
+```{r  cohorts PB, echo=FALSE}
+
+trace1 <- list(
+  type = "heatmap", 
+  y=cohorts_pb$cohort,
+  z = temp
+  
+)
+
+x <- list(
+  title = "Month after 1st Purchase"
+)
+y <- list(
+  title = "First Purchase"
+)
+
+
+data <- list(trace1)
+layout <- list(title = paste("LTV $", round(pb_ltv, digits =0)))
+p <- plot_ly()
+p <- add_trace(p, type=trace1$type, y=cohorts_pb$cohort, z=trace1$z, colorscale=trace1$colorscale)
+p <- layout(p, title=layout$title, xaxis = x, yaxis = y)
+
+p
+
+```
+
 
 Please do not circulate prior consent.
