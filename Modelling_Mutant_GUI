@@ -85,11 +85,11 @@ end_date <- Sys.Date()
 ```
 
 
-Forecast Prophet BBW UAE {.tabset data-width=400}
+Forecast Prophet dummy {.tabset data-width=400}
 -----------------------------------------------------------------------
 
 
-```{r Forecast BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r Forecast dummy, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 
 # BigQuery Auth
@@ -211,9 +211,7 @@ plot_cross_validation_metric(df.cv, metric = 'mape')
 
 
 
-marketing_inv <- 2000000
 phasing_per_cent <- (forecast$trend+forecast$yhat)/sum(forecast$trend+forecast$yhat)
-forecast$pred_budget <- marketing_inv*phasing_per_cent
 forecast$total_orders <- (forecast$trend+forecast$yhat)
 
 attach(forecast)
@@ -223,7 +221,7 @@ plot(ds, total_orders)
 ```
 
 
-```{r Hill Calculation BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r Hill Calculation dummy, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 #calculate hill
 
@@ -242,7 +240,7 @@ colnames(hill_b) <- c("total_cost", "orders")
 ```
 
 
-```{r Hill max value BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r Hill max value dummy, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 #rate of change, loop tocaluclate difference between rows.
 
@@ -280,7 +278,7 @@ forecast$saturation <- saturation$total_cost
 ```
 
 
-```{r forecast prophet BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r forecast prophet dummy, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 #forecast prophet
 forecast$date <- as.Date.character(forecast$ds)
 df_bbw_new$date <- as.Date.character(df_bbw_new$ds)
@@ -306,13 +304,13 @@ df_bbw_plot_e$total_orders <- (df_bbw_plot_e$trend+df_bbw_plot_e$yhat)
 ```
 
 
-```{r BBW hill science BBW UAE, echo=TRUE}
+```{r BBW hill science dummy, echo=TRUE}
 # MLE Hill Saturation -  Log(y/bx) = Ky. [1-Y/L] 
 ```
 
 ### Modeling Optimal Media Spend
 
-```{r series BBW UAE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r series dummy, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 highchart(type = "stock") %>% 
   hc_yAxis_multiples(
@@ -334,7 +332,7 @@ highchart(type = "stock") %>%
   hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, saturation), 
                 name = "Saturation Investment", yAxis = 1) %>% 
   
-  hc_title(text = "Modeling Media Orders and Seasonality BBW UAE",
+  hc_title(text = "Modeling Media Orders and Seasonality dummy",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))%>% 
   
@@ -346,7 +344,7 @@ highchart(type = "stock") %>%
 
 ### Scatter Spend and Orders  
 
-```{r pressure BBW UAE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r pressure dummy, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 attach(df_bbw_new)
 
@@ -374,7 +372,7 @@ hchart(df_bbw_new, "scatter", hcaes(total_cost, orders, color = color)) %>%
 
 ### Hill Function  
 
-```{r Plot Hill BBW UAE, echo=TRUE}
+```{r Plot Hill dummy, echo=TRUE}
 
 #Y <- K/(1+exp(-(α+β*x)))
 hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
@@ -382,17 +380,25 @@ hchart(hill_b, "line", hcaes(x = total_cost, y = orders))
 ```
 
 
-```{r new dataframe recap BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r new dataframe recap dummy, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 df_bbw_recap <- subset(forecast, date > "2020-01-01")
+
+#small transformation
+phasing_per_cent_recap <- (df_bbw_recap$trend+df_bbw_recap$yhat)/sum(df_bbw_recap$trend+df_bbw_recap$yhat)
+df_bbw_recap$phasing_per_cent_recap <- phasing_per_cent_recap
+
+df_bbw_m_budget <- df_bbw_recap$optimal_pace[1]*365
+df_bbw_recap$m_budget <- df_bbw_m_budget*phasing_per_cent_recap
 
 df_bbw_recap_month <- df_bbw_recap%>%
   dplyr::mutate(month = lubridate::month(date))
 
 df_bbw_pred_budget <- df_bbw_recap_month %>%
   group_by(month) %>%
-  summarize(sum(pred_budget))
-              
+  summarize(sum(m_budget))
+
+
 df_bbw_pred_orders <- df_bbw_recap_month %>%
   group_by(month) %>%
   summarize(sum(total_orders))
@@ -407,13 +413,12 @@ df_bbw_pred_budget$gross_rev <- df_bbw_pred_budget$orders*aov_bbw
 df_bbw_pred_budget$store_ctb <-  df_bbw_pred_budget$gross_rev*0.44
 df_bbw_pred_budget$brand_ctb <- df_bbw_pred_budget$store_ctb-df_bbw_pred_budget$pred_budget 
 
-
 ```
 
 
 ### Predicted numbers
 
-```{r bbw UAE all, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+```{r dummy all, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 highchart() %>% 
   hc_chart(type = "column") %>%
   hc_xAxis(categories = df_bbw_recap_month$month) %>%
@@ -426,7 +431,7 @@ highchart() %>%
 
 ### Total 2020
 
-```{r bbw UAE 2020, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+```{r dummy 2020, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 
 
@@ -439,15 +444,15 @@ highchart() %>%
 
 ```
 
-Marketing Mix Modeling - BBW UAE {.tabset data-width=400}
+Marketing Mix Modeling - dummy {.tabset data-width=400}
 -----------------------------------------------------------------------
 
-```{r BBW mmm function BBW UAE, echo=TRUE}
+```{r BBW mmm function dummy, echo=TRUE}
 # Modeling drivers | y = α + β(x) + ϵ 
 ```
 
 
-```{r MMM BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r MMM dummy, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 #query media and price data
 
@@ -520,7 +525,7 @@ df_bbw_mmm$seasonal <- m_bbw_promo$seasonal
 
 
 #start the lineal model
-
+source("gus_funs.R")
 
 vars_model <- c("facebook",
                 "google",
@@ -559,7 +564,7 @@ as.Date.character(df_bbw_mmm$date)
 
 ### Media contribution
 
-```{r MMM BBW UAE Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+```{r MMM dummy Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 highchart(type = "chart") %>% 
    hc_yAxis(title = list(text = "Orders"))%>%
@@ -568,7 +573,7 @@ highchart(type = "chart") %>%
     hc_add_series(df_bbw_mmm, "area", hcaes(date, m_facebook), name = "modeled_facebook") %>% 
     hc_add_series(df_bbw_mmm, "area", hcaes(date, m_google), name = "modeled_google") %>% 
     hc_add_series(df_bbw_mmm, "area", hcaes(date, m_affiliates), name = "modeled_affiliates") %>% 
-    hc_title(text = "Drivers BBW UAE",
+    hc_title(text = "Drivers dummy",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))
   
@@ -580,12 +585,12 @@ highchart(type = "chart") %>%
 ```{r MMM BBW coefs UAE, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 df_bbw_mmm %>%
-  table(model = lm_fit, confidence = .95) %>%
+  tabla_coeficientes(model = lm_fit, confidence = .95) %>%
   datatable_coeficientes()
 
 ```
 
-Facebook Modeling - BBW UAE {.tabset data-width=400}
+Facebook Modeling - dummy {.tabset data-width=400}
 -----------------------------------------------------------------------
 
 
@@ -644,7 +649,7 @@ highchart(type = "chart") %>%
     hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
     hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
     hc_add_series(df_bbw_mmm, "area", hcaes(date, m_facebook), name = "modeled_facebook")%>%
-    hc_title(text = "Facebook fitting BBW UAE",
+    hc_title(text = "Facebook fitting dummy",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))
   
@@ -657,7 +662,7 @@ highchart(type = "chart") %>%
 ```{r MMM FB coefs Facebook, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 df_bbw_mmm %>%
-  table(model = lm_fit_fb, confidence = .95) %>%
+  tabla_coeficientes(model = lm_fit_fb, confidence = .95) %>%
   datatable_coeficientes()
 
 ```
@@ -754,7 +759,7 @@ max_brand_ctb_bbw_fb <- hill_fb %>%
 
 
 max_spend_fb <- hill_fb %>% 
-  filter(diff < 2 & total_cost > mean(total_cost))
+  filter(diff < 5 & total_cost > mean(total_cost))
 
 saturation_fb <- max_spend_fb  %>% 
   filter(total_cost == min(total_cost))
@@ -810,7 +815,7 @@ highchart(type = "stock") %>%
   hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, saturation_fb), 
                 name = "Saturation Investment", yAxis = 1) %>% 
   
-  hc_title(text = "Modeling Media Orders and Seasonality BBW UAE",
+  hc_title(text = "Modeling Media Orders and Seasonality dummy",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))%>% 
   
@@ -819,7 +824,7 @@ highchart(type = "stock") %>%
 
 ```
 
-Google Modeling - BBW UAE {.tabset data-width=400}
+Google Modeling - dummy {.tabset data-width=400}
 -----------------------------------------------------------------------
 
 ```{r MMM BBW GRPS Google, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
@@ -876,7 +881,7 @@ highchart(type = "chart") %>%
   hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
   hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
   hc_add_series(df_bbw_mmm, "area", hcaes(date, m_google), name = "modeled_google", color = "#F7A35C")%>%
-  hc_title(text = "Google fitting BBW UAE",
+  hc_title(text = "Google fitting dummy",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))
 
@@ -888,8 +893,7 @@ highchart(type = "chart") %>%
 ```{r MMM FB coefs Google, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 df_bbw_mmm %>%
-  
-  table(model = lm_fit_ga, confidence = .95) %>%
+  tabla_coeficientes(model = lm_fit_ga, confidence = .95) %>%
   datatable_coeficientes()
 
 ```
@@ -1046,7 +1050,7 @@ highchart(type = "stock") %>%
   hc_add_series(forecast, "line", dashStyle = 'dot', hcaes(date, saturation_ga), 
                 name = "Saturation Investment", yAxis = 1) %>% 
   
-  hc_title(text = "Modeling Media Orders and Seasonality BBW UAE",
+  hc_title(text = "Modeling Media Orders and Seasonality dummy",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))%>% 
   
@@ -1055,4 +1059,48 @@ highchart(type = "stock") %>%
 
 ```
 
+
+Pricing Strategy Modeling - dummy {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r MMM Pricing calculus, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+
+#price analysis, variance aov and fit LM model
+
+v_aov <- df_bbw_new$aov-mean(aov)
+df_bbw_new$v_aov <- v_aov
+loss_orders <- df_bbw_new$v_aov*lm_fit_ga$coefficients[8]
+df_bbw_new$price_elasticity <- loss_orders 
+
+
+```
+
+### AOV variance
+
+
+```{r plot pricing modeling, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "chart") %>% 
+  hc_yAxis(title = list(text = "Variance in $"))%>%
+  hc_add_series(df_bbw_new, "area", hcaes(ds, v_aov), name = "variance price") %>% 
+  hc_title(text = "Historical AOV ",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))%>% 
+   hc_subtitle(text = paste("Baseline AOV at $", round(mean(aov), digits =2)),
+              align = "center", style = list(color = "#1D1F3C", fontWeight = "bold"))
+```
+
+### Modeling Price
+
+```{r plot pricing strategy, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
+
+highchart(type = "chart") %>% 
+  hc_yAxis(title = list(text = "Orders"))%>%
+  hc_add_series(df_bbw_new, "area", hcaes(ds, price_elasticity), name = "Price elasticity", color = "#F08080")%>% 
+  hc_title(text = "Modeling Variance price impact in Orders ",
+           margin = 20, align = "center",
+           style = list(color = "#000000", useHTML = TRUE))
+           
+```
+           
 Please do not distribute without permission
