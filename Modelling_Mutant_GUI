@@ -520,7 +520,7 @@ df_bbw_mmm$seasonal <- m_bbw_promo$seasonal
 
 
 #start the lineal model
-source("conento_funs.R")
+
 
 vars_model <- c("facebook",
                 "google",
@@ -580,7 +580,7 @@ highchart(type = "chart") %>%
 ```{r MMM BBW coefs UAE, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 df_bbw_mmm %>%
-  tabla_coeficientes(model = lm_fit, confidence = .95) %>%
+  table(model = lm_fit, confidence = .95) %>%
   datatable_coeficientes()
 
 ```
@@ -657,7 +657,7 @@ highchart(type = "chart") %>%
 ```{r MMM FB coefs Facebook, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 df_bbw_mmm %>%
-  tabla_coeficientes(model = lm_fit_fb, confidence = .95) %>%
+  table(model = lm_fit_fb, confidence = .95) %>%
   datatable_coeficientes()
 
 ```
@@ -888,7 +888,8 @@ highchart(type = "chart") %>%
 ```{r MMM FB coefs Google, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 df_bbw_mmm %>%
-  tabla_coeficientes(model = lm_fit_ga, confidence = .95) %>%
+  
+  table(model = lm_fit_ga, confidence = .95) %>%
   datatable_coeficientes()
 
 ```
