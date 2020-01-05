@@ -759,7 +759,7 @@ max_brand_ctb_bbw_fb <- hill_fb %>%
 
 
 max_spend_fb <- hill_fb %>% 
-  filter(diff < 5 & total_cost > mean(total_cost))
+  filter(diff < 10 & total_cost > mean(total_cost))
 
 saturation_fb <- max_spend_fb  %>% 
   filter(total_cost == min(total_cost))
@@ -1103,4 +1103,34 @@ highchart(type = "chart") %>%
            
 ```
            
+
+Regression Assumtion - BBW UAE {.tabset data-width=400}
+-----------------------------------------------------------------------
+
+```{r regression assumtion, echo=TRUE, warning=FALSE,message=FALSE,error=FALSE}
+
+attach(lm_fit)
+
+#1st Residual vs fitted Linear assumtion plot. Ideally, slope should be null, horizontal line blue lune should be approximately at zero. The presence of a pattern may indicate a problem with some aspect of the linear model. BBW UAE shows no pattern in the residual vs fitted a good sign in the model robustness.
+
+#2nd Plot QQ - The QQ plot of residuals can be used to visually check the normality assumption. The normal probability plot of residuals should approximately follow a straight line, in our case as we increase the spend the error increases. Sign of a non linear relation as we increase the effect on the regressor.
+
+#3rd plot Scale location - This plot shows if residuals are spread equally along the ranges of predictors. It’s good if you see a horizontal line with equally spread points. In BBW UAE, this is not the case. It can be seen that the variability (variances) of the residual points increases with the value of the fitted outcome variable, suggesting non-constant variances in the residuals errors (or heteroscedasticity). Apling log transformation on y removed heteroscedasticity problem view plot 5, error in fitted increases as we increase effect on the predictors, this is due to the non linear relation between media spend and orders (outliers not included)
+
+#4rd plot Outliers and high levarage points atr isolated from the regression using cook's distance method, horizontal line nearing the 0 is good sign of removing outliers view plot 5
+
+
+par(mfrow = c(2, 2))
+autoplot(lm_fit)
+
+# log transformation to remove heteroscedasticity
+model_log <- lm(log(orders) ~ facebook + google + affiliates + seasonal, data = df_bbw_mmm)
+autoplot(model_log, 3)
+
+
+```
+
+
 Please do not distribute without permission
+
+
