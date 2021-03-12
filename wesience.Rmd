@@ -18,10 +18,6 @@ library(forecast)
 library(treemap)
 library(flexdashboard)
 library(arules)
-
-library(highcharter)
-library(forecast)
-library(highcharter)
 library(ggplot2)
 library(ggfortify)
 library(prophet)
@@ -29,12 +25,8 @@ library(corrplot)
 library(knitr)
 
 library(bigrquery) 
-library(dplyr) 
 library(DBI)
-library(ggplot2)
 library(bigQueryR)
-
-library(corrplot)
 library(drc)
 library(sandwich)
 library(lmtest)
@@ -92,7 +84,7 @@ Forecast Prophet BBW UAE {.tabset data-width=400}
 ```{r Forecast BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 
-# BigQuery Auth
+# BigQuery Auth ----
 bq_auth(path = "conn.json")
 projectid<-'uts-mdsi'
 datasetid<-'stds_assignment'
@@ -135,7 +127,7 @@ sql_query = sprintf("SELECT * FROM `authentic-codex-225113.monaliza_bi.promotion
 offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
 df_bbw_promo = bq_table_download(offence_qtr)
 
-#Caluclate difference between dates function dynamic period date for prophet
+#Caluclate difference between dates function dynamic period date for prophet -----
 
 f_prophet_days <- as.Date(as.character('2020-12-31'), format="%Y-%m-%d")-as.Date(as.character(end_date), format="%Y-%m-%d")
 f_prophet_days <- f_prophet_days+1
@@ -242,9 +234,9 @@ colnames(hill_b) <- c("total_cost", "orders")
 
 ```{r Hill max value BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
-#rate of change, loop tocaluclate difference between rows.
+#rate of change, loop to caluclate difference between rows.
 
-#PL numbers to caluclate max profit or max marketshre
+#PL numbers to caluclate max profit or max marketshare
 aov_bbw <- mean(df_bbw_new$aov)
 hill_b$gross_rev <- hill_b$orders*aov_bbw
 hill_b$store_ctb <-  hill_b$gross_rev*0.44
@@ -527,12 +519,11 @@ df_bbw_mmm$seasonal <- m_bbw_promo$seasonal
 #start the lineal model
 source("gus_funs.R")
 
-vars_model <- c("facebook",
-                "google",
-                "affiliates",
-                "seasonal")
+vars_model <- c("facebook_S",
+                "search_S",
+                "markdown_P")
 
-var_tgt <- "orders"
+var_tgt <- "revenue"
 
 
 # 1 - MODELO LINEAL -------------------------------------------------------
@@ -541,24 +532,22 @@ f <- paste(f, "-1")
 f <- paste(var_tgt, f, sep = "~")
 f <- as.formula(f)
 
-lm_fit <- lm(f, data = df_bbw_mmm)
+lm_fit <- lm(f, data = dt_input)
 summary(lm_fit)
-
+df_bbw_mmm = dt_input
 #plot
 
 
 coeffs <- coefficients(lm_fit)
 coeffs
 
-df_bbw_mmm$modeled_orders <- df_bbw_mmm$facebook *coeffs[1] + df_bbw_mmm$google *coeffs[2] + df_bbw_mmm$affiliates*coeffs[3]  + df_bbw_mmm$seasonal[4]
+df_bbw_mmm$modeled_orders <- df_bbw_mmm$facebook_S *coeffs[1] + df_bbw_mmm$search_S *coeffs[2] + df_bbw_mmm$markdown_P*coeffs[3]  
 
+df_bbw_mmm$m_facebook <- df_bbw_mmm$facebook_S *coeffs[1]
+df_bbw_mmm$m_google <- df_bbw_mmm$search_S *coeffs[2]
+df_bbw_mmm$m_markdown <- df_bbw_mmm$markdown_P*coeffs[3]
 
-df_bbw_mmm$m_facebook <- df_bbw_mmm$facebook *coeffs[1]
-df_bbw_mmm$m_google <- df_bbw_mmm$google *coeffs[2]
-df_bbw_mmm$m_affiliates <- df_bbw_mmm$affiliates*coeffs[3]
-df_bbw_mmm$m_seasonal <- df_bbw_mmm$seasonal[4]
-
-as.Date.character(df_bbw_mmm$date)
+# df_bbw_mmm$DATE = as.Date(df_bbw_mmm$DATE)
 
 ```
 
@@ -567,12 +556,12 @@ as.Date.character(df_bbw_mmm$date)
 ```{r MMM BBW UAE Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
 highchart(type = "chart") %>% 
-   hc_yAxis(title = list(text = "Orders"))%>%
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, m_facebook), name = "modeled_facebook") %>% 
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, m_google), name = "modeled_google") %>% 
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, m_affiliates), name = "modeled_affiliates") %>% 
+   hc_yAxis(title = list(text = "new customers"))%>%
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, revenue), name = "Real_new_customers") %>%
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, modeled_orders), name = "modeled_new_customers") %>% 
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, m_facebook), name = "modeled_facebook") %>% 
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, m_google), name = "modeled_google") %>% 
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, m_markdown), name = "modeled_affiliates") %>% 
     hc_title(text = "Drivers BBW UAE",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))
@@ -596,9 +585,9 @@ Facebook Modeling - BBW UAE {.tabset data-width=400}
 
 ``````{r MMM BBW GRPS FB, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
-df_bbw_mmm$iCPO_fb <- df_bbw_mmm$facebook/df_bbw_mmm$m_facebook
-df_bbw_mmm$iCPO_google <- df_bbw_mmm$google/df_bbw_mmm$m_google
-df_bbw_mmm$iCPO_affiliates <- df_bbw_mmm$affiliates/df_bbw_mmm$m_affiliates
+df_bbw_mmm$iCPO_fb <- df_bbw_mmm$facebook_S/df_bbw_mmm$m_facebook
+df_bbw_mmm$iCPO_google <- df_bbw_mmm$search_S/df_bbw_mmm$m_google
+df_bbw_mmm$iCPO_markdown <- df_bbw_mmm$markdown_P/df_bbw_mmm$m_markdown
 
 
 iCPO_fb <- df_bbw_mmm$iCPO_fb[245]
@@ -606,27 +595,36 @@ iCPO_google <- df_bbw_mmm$iCPO_google[245]
 iCPO_affiliates <- df_bbw_mmm$iCPO_affiliates[245]
 
 
-df_bbw_mmm$grp1 <- df_bbw_mmm$facebook < 1000
-df_bbw_mmm$grp2 <- df_bbw_mmm$facebook >= 1000 & df_bbw_mmm$facebook < 2000
-df_bbw_mmm$grp3 <- df_bbw_mmm$facebook >= 2000 & df_bbw_mmm$facebook < 5000
-df_bbw_mmm$grp4 <- df_bbw_mmm$facebook >= 5000 & df_bbw_mmm$facebook < 10000
+df_bbw_mmm$grp1 <- df_bbw_mmm$facebook_S < 100
+df_bbw_mmm$grp2 <- df_bbw_mmm$facebook_S >= 100 & df_bbw_mmm$facebook_S < 1000
+df_bbw_mmm$grp3 <- df_bbw_mmm$facebook_S >= 1000 & df_bbw_mmm$facebook_S < 5000
+df_bbw_mmm$grp4 <- df_bbw_mmm$facebook_S >= 5000 & df_bbw_mmm$facebook_S < 10000
+df_bbw_mmm$grp5 <- df_bbw_mmm$facebook_S >= 10000 & df_bbw_mmm$facebook_S < 30000
+df_bbw_mmm$grp6 <- df_bbw_mmm$facebook_S >= 30000 & df_bbw_mmm$facebook_S < 60000
+df_bbw_mmm$grp7 <- df_bbw_mmm$facebook_S >= 60000 
+
 
 df_bbw_mmm$grp1 <- as.integer(as.logical(df_bbw_mmm$grp1))
 df_bbw_mmm$grp2 <- as.integer(as.logical(df_bbw_mmm$grp2))
 df_bbw_mmm$grp3 <- as.integer(as.logical(df_bbw_mmm$grp3))
 df_bbw_mmm$grp4 <- as.integer(as.logical(df_bbw_mmm$grp4))
+df_bbw_mmm$grp5 <- as.integer(as.logical(df_bbw_mmm$grp5))
+df_bbw_mmm$grp6 <- as.integer(as.logical(df_bbw_mmm$grp6))
+df_bbw_mmm$grp7 <- as.integer(as.logical(df_bbw_mmm$grp7))
+
 
 
 vars_model_fb <- c("grp1",
-                "grp2",
-                "grp3",
-                "grp4",
-                "google",
-                "affiliates",
-                "price",
-                "seasonal")
+                   "grp2",
+                   "grp3",
+                   "grp4",
+                   "grp5",
+                   "grp6",
+                   "grp7",
+                   "search_S",
+                   "markdown_P")
 
-var_tgt_fb <- "orders"
+var_tgt_fb <- "revenue"
 
 
 
@@ -644,11 +642,25 @@ summary(lm_fit_fb)
 
 ```{r MMM BBW FB UAE Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
+coeffs <- coefficients(lm_fit_fb)
+coeffs
+
+m_facebook_lm_fb = df_bbw_mmm$grp1 * coeffs[1] + df_bbw_mmm$grp2 * coeffs[2] + df_bbw_mmm$grp3 *
+  coeffs[3] + df_bbw_mmm$grp4 * coeffs[4] + df_bbw_mmm$grp5 * coeffs[5] +
+  df_bbw_mmm$grp6 * coeffs[6] + df_bbw_mmm$grp7 * coeffs[7]
+
+df_bbw_mmm$modeled_orders_fb_s <-
+  m_facebook_lm_fb + df_bbw_mmm$search_S * coeffs[8] + df_bbw_mmm$markdown_P * coeffs[9]
+
+df_bbw_mmm$m_google_lm_fb <- df_bbw_mmm$search_S *coeffs[8]
+df_bbw_mmm$m_markdown_lm_fb <- df_bbw_mmm$markdown_P*coeffs[9]
+
+
 highchart(type = "chart") %>% 
    hc_yAxis(title = list(text = "Orders"))%>%
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
-    hc_add_series(df_bbw_mmm, "area", hcaes(date, m_facebook), name = "modeled_facebook")%>%
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, revenue), name = "Real_orders") %>% 
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, modeled_orders_fb_s), name = "modeled_orders") %>% 
+    hc_add_series(df_bbw_mmm, "area", hcaes(DATE, m_facebook), name = "modeled_facebook")%>%
     hc_title(text = "Facebook fitting BBW UAE",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))
@@ -671,21 +683,27 @@ df_bbw_mmm %>%
 ```{r MMM BBW Saturation FB, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 
-fb_grp1_cost <- 1000
-fb_grp2_cost <- 2000
-fb_grp3_cost <- 5000
-fb_grp4_cost <- 9547
+fb_grp1_cost <- mean((df_bbw_mmm %>% filter(grp1==1))$facebook_S)
+fb_grp2_cost <- mean((df_bbw_mmm %>% filter(grp2==1))$facebook_S)
+fb_grp3_cost <- mean((df_bbw_mmm %>% filter(grp3==1))$facebook_S)
+fb_grp4_cost <- mean((df_bbw_mmm %>% filter(grp4==1))$facebook_S)
+fb_grp5_cost <- mean((df_bbw_mmm %>% filter(grp5==1))$facebook_S)
+fb_grp6_cost <- mean((df_bbw_mmm %>% filter(grp6==1))$facebook_S)
+fb_grp7_cost <- mean((df_bbw_mmm %>% filter(grp7==1))$facebook_S)
 
 
 e_grp1 <- lm_fit_fb$coefficients[1]
 e_grp2 <- lm_fit_fb$coefficients[2]
 e_grp3 <- lm_fit_fb$coefficients[3]
-e_grp4 <-lm_fit_fb$coefficients[4]
+e_grp4 <- lm_fit_fb$coefficients[4]
+e_grp5 <- lm_fit_fb$coefficients[5]
+e_grp6 <- lm_fit_fb$coefficients[6]
+e_grp7 <- lm_fit_fb$coefficients[7]
 
 
 # effect and cost
-effect <- c(e_grp1,e_grp2,e_grp3,e_grp4)
-fb_cost <- c(fb_grp1_cost, fb_grp2_cost, fb_grp3_cost, fb_grp4_cost)
+effect <- c(e_grp1,e_grp2,e_grp3,e_grp4, e_grp5, e_grp7)
+fb_cost <- c(fb_grp1_cost, fb_grp2_cost, fb_grp3_cost, fb_grp4_cost, fb_grp5_cost, fb_grp7_cost)
 
 # Join the variables to create a data frame
 s_fb <- data.frame(effect,fb_cost)
@@ -708,15 +726,15 @@ hchart(s_fb, "scatter", hcaes(x = fb_cost, y = effect))
 
 attach(s_fb)
 
-m.hill_b_fb <- drm(effect ~ fb_cost, fct = LL.5())
+m.hill_b_fb <- drm(effect ~ fb_cost, fct = LL.4())
 summary(m.hill_b_fb)
 
 hill_fb <- plot(m.hill_b_fb, broken = TRUE, type = "all",
-               xlab = "Facebook Media Spend", xlim = c(100, 10000),
-               ylab = "Orders", col="blue")
+               xlab = "Facebook Media Spend", xlim = c(0, 10000000), ylim =  c(0, 30000),
+               ylab = "new customers", col="blue")
 
 
-colnames(hill_fb) <- c("total_cost", "orders")
+colnames(hill_fb) <- c("total_cost", "new_customers")
 
 ```
 
@@ -725,7 +743,7 @@ colnames(hill_fb) <- c("total_cost", "orders")
 
 ```{r plot hill f Facebook, echo=TRUE, warning=FALSE,message=FALSE,error=FALSE}
 #Y <- K/(1+exp(-(α+β*x)))
-hchart(hill_fb, "line", hcaes(x = total_cost, y = orders))
+hchart(hill_fb, "line", hcaes(x = total_cost, y = new_customers))
 
 ```
 
@@ -736,17 +754,17 @@ hchart(hill_fb, "line", hcaes(x = total_cost, y = orders))
 #rate of change, loop tocaluclate difference between rows.
 
 #PL numbers to caluclate max profit or max marketshre
-aov_bbw <- mean(df_bbw_new$aov)
-hill_fb$gross_rev <- hill_fb$orders*aov_bbw
+aov_bbw <- 100
+hill_fb$gross_rev <- hill_fb$new_customers*aov_bbw
 hill_fb$store_ctb <-  hill_fb$gross_rev*0.44
 hill_fb$brand_ctb <- hill_fb$store_ctb-hill_fb$total_cost 
-hill_fb$cpo <- hill_fb$total_cost/hill_fb$orders
+hill_fb$cpo <- hill_fb$total_cost/hill_fb$new_customers
 
 
 attach(hill_fb)
 
 diff <- hill_fb %>%
-  mutate(diff = orders - lag(orders, default = first(orders)))
+  mutate(diff = new_customers - lag(new_customers, default = first(new_customers)))
 hill_fb$diff <- diff$diff
 
 #Find Max value hill b max rate of change slope
@@ -759,11 +777,12 @@ max_brand_ctb_bbw_fb <- hill_fb %>%
 
 
 max_spend_fb <- hill_fb %>% 
-  filter(diff < 10 & total_cost > mean(total_cost))
+  filter(diff < 200 & total_cost > mean(total_cost))
 
 saturation_fb <- max_spend_fb  %>% 
   filter(total_cost == min(total_cost))
 
+# forecast = data.frame(saturation_fb = 0)
 forecast$saturation_fb <- saturation_fb$total_cost
 
 
@@ -831,11 +850,17 @@ Google Modeling - BBW UAE {.tabset data-width=400}
 
 #model Google.
 
-df_bbw_mmm$grp1_ga <- df_bbw_mmm$google < 500
-df_bbw_mmm$grp2_ga <- df_bbw_mmm$google >= 500 & df_bbw_mmm$google < 1500
-df_bbw_mmm$grp3_ga <- df_bbw_mmm$google >= 1500 & df_bbw_mmm$google < 3000
-df_bbw_mmm$grp4_ga <- df_bbw_mmm$google >= 3000 & df_bbw_mmm$google < 4000
-df_bbw_mmm$grp5_ga <- df_bbw_mmm$google >= 4000 
+df_bbw_mmm$grp1_ga <- df_bbw_mmm$search_S < 10000
+df_bbw_mmm$grp2_ga <- df_bbw_mmm$search_S >= 10000 & df_bbw_mmm$search_S < 30000
+df_bbw_mmm$grp3_ga <- df_bbw_mmm$search_S >= 30000 & df_bbw_mmm$search_S < 50000
+df_bbw_mmm$grp4_ga <- df_bbw_mmm$search_S >= 50000 & df_bbw_mmm$search_S < 70000
+df_bbw_mmm$grp5_ga <- df_bbw_mmm$search_S >= 70000 & df_bbw_mmm$search_S < 85000
+df_bbw_mmm$grp6_ga <- df_bbw_mmm$search_S >= 85000 & df_bbw_mmm$search_S < 100000
+df_bbw_mmm$grp7_ga <- df_bbw_mmm$search_S >= 100000 & df_bbw_mmm$search_S < 140000
+df_bbw_mmm$grp8_ga <- df_bbw_mmm$search_S >= 140000 & df_bbw_mmm$search_S < 180000
+df_bbw_mmm$grp9_ga <- df_bbw_mmm$search_S >= 180000 & df_bbw_mmm$search_S < 200000
+df_bbw_mmm$grp10_ga <- df_bbw_mmm$search_S >= 200000 & df_bbw_mmm$search_S < 250000
+df_bbw_mmm$grp11_ga <- df_bbw_mmm$search_S >= 250000
 
 
 df_bbw_mmm$grp1_ga <- as.integer(as.logical(df_bbw_mmm$grp1_ga))
@@ -843,6 +868,12 @@ df_bbw_mmm$grp2_ga <- as.integer(as.logical(df_bbw_mmm$grp2_ga))
 df_bbw_mmm$grp3_ga <- as.integer(as.logical(df_bbw_mmm$grp3_ga))
 df_bbw_mmm$grp4_ga <- as.integer(as.logical(df_bbw_mmm$grp4_ga))
 df_bbw_mmm$grp5_ga <- as.integer(as.logical(df_bbw_mmm$grp5_ga))
+df_bbw_mmm$grp6_ga <- as.integer(as.logical(df_bbw_mmm$grp6_ga))
+df_bbw_mmm$grp8_ga <- as.integer(as.logical(df_bbw_mmm$grp8_ga))
+df_bbw_mmm$grp9_ga <- as.integer(as.logical(df_bbw_mmm$grp9_ga))
+df_bbw_mmm$grp10_ga <- as.integer(as.logical(df_bbw_mmm$grp10_ga))
+df_bbw_mmm$grp7_ga <- as.integer(as.logical(df_bbw_mmm$grp7_ga))
+df_bbw_mmm$grp11_ga <- as.integer(as.logical(df_bbw_mmm$grp11_ga))
 
 #start model
 
@@ -852,12 +883,16 @@ vars_model_ga <- c("grp1_ga",
                    "grp3_ga",
                    "grp4_ga",
                    "grp5_ga",
-                   "facebook",
-                   "affiliates",
-                   "price",
-                   "seasonal")
+                   "grp6_ga",
+                   "grp7_ga",
+                   "grp8_ga",
+                   "grp9_ga",
+                   "grp10_ga",
+                   "grp11_ga",
+                   "facebook_S",
+                   "markdown_P")
 
-var_tgt_ga <- "orders"
+var_tgt_ga <- "revenue"
 
 
 
@@ -876,11 +911,25 @@ summary(lm_fit_ga)
 
 ```{r MMM BBW GA UAE Chart, echo=FALSE, warning=FALSE,message=FALSE,error=FALSE}
 
+coeffs <- coefficients(lm_fit_ga)
+coeffs
+
+m_search_lm_ga = df_bbw_mmm$grp1_ga * coeffs[1] + df_bbw_mmm$grp2_ga * coeffs[2] + df_bbw_mmm$grp3_ga *
+  coeffs[3] + df_bbw_mmm$grp4_ga * coeffs[4] + df_bbw_mmm$grp5_ga * coeffs[5] +
+  df_bbw_mmm$grp6_ga * coeffs[6] + df_bbw_mmm$grp7_ga * coeffs[7] + df_bbw_mmm$grp8_ga * coeffs[8] + df_bbw_mmm$grp9_ga * coeffs[9] + df_bbw_mmm$grp10_ga * coeffs[10] + df_bbw_mmm$grp11_ga * coeffs[11]
+
+df_bbw_mmm$modeled_orders_ga_s <-
+  m_search_lm_ga + df_bbw_mmm$facebook_S * coeffs[12] + df_bbw_mmm$markdown_P * coeffs[13]
+
+df_bbw_mmm$m_facebook_lm_ga <- df_bbw_mmm$facebook_S *coeffs[12]
+df_bbw_mmm$m_markdown_lm_ga <- df_bbw_mmm$markdown_P*coeffs[13]
+
+
 highchart(type = "chart") %>% 
-  hc_yAxis(title = list(text = "Orders"))%>%
-  hc_add_series(df_bbw_mmm, "area", hcaes(date, orders), name = "Real_orders") %>% 
-  hc_add_series(df_bbw_mmm, "area", hcaes(date, modeled_orders), name = "modeled_orders") %>% 
-  hc_add_series(df_bbw_mmm, "area", hcaes(date, m_google), name = "modeled_google", color = "#F7A35C")%>%
+  hc_yAxis(title = list(text = "new_customers"))%>%
+  hc_add_series(df_bbw_mmm, "area", hcaes(DATE, revenue), name = "Real_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(DATE, modeled_orders_ga_s), name = "modeled_orders") %>% 
+  hc_add_series(df_bbw_mmm, "area", hcaes(DATE, m_search_lm_ga), name = "modeled_google", color = "#F7A35C")%>%
   hc_title(text = "Google fitting BBW UAE",
            margin = 20, align = "center",
            style = list(color = "#000000", useHTML = TRUE))
@@ -903,11 +952,17 @@ df_bbw_mmm %>%
 ```{r MMM BBW Saturation GA, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
 
-ga_grp1_cost <- 500
-ga_grp2_cost <- 1000
-ga_grp3_cost <- 2000
-ga_grp4_cost <- 3000
-ga_grp5_cost <- 4000
+ga_grp1_cost = mean((df_bbw_mmm %>% filter(grp1_ga==1))$search_S)
+ga_grp2_cost <- mean((df_bbw_mmm %>% filter(grp2_ga==1))$search_S)
+ga_grp3_cost <- mean((df_bbw_mmm %>% filter(grp3_ga==1))$search_S)
+ga_grp4_cost <- mean((df_bbw_mmm %>% filter(grp4_ga==1))$search_S)
+ga_grp5_cost <- mean((df_bbw_mmm %>% filter(grp5_ga==1))$search_S)
+ga_grp6_cost <- mean((df_bbw_mmm %>% filter(grp6_ga==1))$search_S)
+ga_grp7_cost <- mean((df_bbw_mmm %>% filter(grp7_ga==1))$search_S)
+ga_grp8_cost <- mean((df_bbw_mmm %>% filter(grp8_ga==1))$search_S)
+ga_grp9_cost <- mean((df_bbw_mmm %>% filter(grp9_ga==1))$search_S)
+ga_grp10_cost <- mean((df_bbw_mmm %>% filter(grp10_ga==1))$search_S)
+ga_grp11_cost <- mean((df_bbw_mmm %>% filter(grp11_ga==1))$search_S)
 
 
 e_grp1_ga <- lm_fit_ga$coefficients[1]
@@ -915,11 +970,44 @@ e_grp2_ga <- lm_fit_ga$coefficients[2]
 e_grp3_ga <- lm_fit_ga$coefficients[3]
 e_grp4_ga <-lm_fit_ga$coefficients[4]
 e_grp5_ga <-lm_fit_ga$coefficients[5]
+e_grp6_ga <-lm_fit_ga$coefficients[6]
+e_grp7_ga <-lm_fit_ga$coefficients[7]
+e_grp8_ga <-lm_fit_ga$coefficients[8]
+e_grp9_ga <-lm_fit_ga$coefficients[9]
+e_grp10_ga <-lm_fit_ga$coefficients[10]
+e_grp11_ga <-lm_fit_ga$coefficients[11]
 
 
 # effect and cost
-ga_effect <- c(e_grp1_ga,e_grp2_ga,e_grp3_ga,e_grp4_ga, e_grp5_ga)
-ga_cost <- c(ga_grp1_cost, ga_grp2_cost, ga_grp3_cost, ga_grp4_cost, ga_grp5_cost)
+ga_effect <-
+  c(
+    e_grp1_ga,
+    e_grp6_ga,
+    e_grp3_ga,
+    e_grp4_ga,
+    e_grp5_ga,
+    e_grp6_ga,
+    e_grp7_ga,
+    e_grp8_ga,
+    e_grp9_ga,
+    e_grp10_ga,
+    e_grp11_ga
+  )
+
+ga_cost <-
+  c(
+    ga_grp1_cost,
+    ga_grp6_cost,
+    ga_grp3_cost,
+    ga_grp4_cost,
+    ga_grp5_cost,
+    ga_grp6_cost,
+    ga_grp7_cost,
+    ga_grp8_cost,
+    ga_grp9_cost,
+    ga_grp10_cost,
+    ga_grp11_cost
+  )
 
 # Join the variables to create a data frame
 s_ga <- data.frame(ga_effect,ga_cost)
@@ -946,11 +1034,11 @@ m.hill_b_ga <- drm(ga_effect ~ ga_cost, fct = LL.5())
 summary(m.hill_b_ga)
 
 hill_ga <- plot(m.hill_b_ga, broken = TRUE, type = "all",
-                xlab = "Google Media Spend", xlim = c(100, 10000),
-                ylab = "Orders", col="blue")
+                xlab = "Google Media Spend", xlim = c(100, 1000000),
+                ylab = "new_customers", col="blue")
 
 
-colnames(hill_ga) <- c("total_cost", "orders")
+colnames(hill_ga) <- c("total_cost", "new_customers")
 
 ```
 
@@ -959,7 +1047,7 @@ colnames(hill_ga) <- c("total_cost", "orders")
 
 ```{r plot hill f GA, echo=TRUE, warning=FALSE,message=FALSE,error=FALSE}
 #Y <- K/(1+exp(-(α+β*x)))
-hchart(hill_ga, "line", hcaes(x = total_cost, y = orders))
+hchart(hill_ga, "line", hcaes(x = total_cost, y = new_customers))
 
 ```
 
@@ -972,16 +1060,16 @@ hchart(hill_ga, "line", hcaes(x = total_cost, y = orders))
 #PL numbers to caluclate max profit or max marketshre
 
 attach(hill_ga)
-aov_bbw <- mean(df_bbw_new$aov)
-hill_ga$gross_rev <- hill_ga$orders*aov_bbw
+aov_bbw <- 100
+hill_ga$gross_rev <- hill_ga$new_customers*aov_bbw
 hill_ga$store_ctb <-  hill_ga$gross_rev*0.44
 hill_ga$brand_ctb <- hill_ga$store_ctb-hill_ga$total_cost 
-hill_ga$cpo <- hill_fb$total_cost/hill_ga$orders
+hill_ga$cpo <- hill_fb$total_cost/hill_ga$new_customers
 
 
 
 diff <- hill_ga %>%
-  mutate(diff = orders - lag(orders, default = first(orders)))
+  mutate(diff = new_customers - lag(new_customers, default = first(new_customers)))
 hill_ga$diff <- diff$diff
 
 #Find Max value hill b max rate of change slope
@@ -994,7 +1082,7 @@ max_brand_ctb_bbw_ga <- hill_ga %>%
 
 
 max_spend_ga <- hill_ga %>% 
-  filter(diff < 2 & total_cost > mean(total_cost))
+  filter(diff < 500 & total_cost > mean(total_cost))
 
 saturation_ga <- max_spend_ga  %>% 
   filter(total_cost == min(total_cost))
