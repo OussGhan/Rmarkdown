@@ -63,74 +63,24 @@ library(DT)
 library(tidyverse)
 
 
-gar_auth_service("conn.json")
-knitr::opts_chunk$set(echo = TRUE)
-
-
-```
-
-```{r Start_date, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
-
-start_date <- "2019-01-01"
-end_date <- Sys.Date()
 
 ```
 
 
-Forecast Prophet BBW UAE {.tabset data-width=400}
+Forecast Prophet  {.tabset data-width=400}
 -----------------------------------------------------------------------
 
 
-```{r Forecast BBW UAE, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+```{r Forecast Salomon, include=FALSE, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 
-
-# BigQuery Auth ----
-bq_auth(path = "conn.json")
-projectid<-'uts-mdsi'
-datasetid<-'stds_assignment'
-bq_conn <-  dbConnect(bigquery(), 
-                      project = "authentic-codex-225113",
-                      dataset = "monaliza_bi", 
-                      use_legacy_sql = FALSE
-)
-
-bigrquery::dbListTables(bq_conn)
-
-sql_query = sprintf("
-SELECT
-date,
-SUM(orders) as orders,
-SUM(new_customers) as new_cst,
-(SUM(affiliate_cost) + SUM(cost)) as total_cost,
-SUM(gross_revenue) / SUM(orders) as AOV
- 
-FROM `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
-where brand_country = 'BB_UAE'and date between '%s' and '%s'
-
-group by
-1
-
-order by 1 asc", start_date, end_date)
-
-
-offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
-df_bbw_new = bq_table_download(offence_qtr)
-
-
-#extract promotion calendar.
-
-
-sql_query = sprintf("SELECT * FROM `authentic-codex-225113.monaliza_bi.promotions_calendar_bbw`
-                    where brand = 'BB_UAE' and date between '2019-01-01' and '2020-12-31'
-                    order by 1 desc")
-
-offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
-df_bbw_promo = bq_table_download(offence_qtr)
 
 #Caluclate difference between dates function dynamic period date for prophet -----
 
-f_prophet_days <- as.Date(as.character('2020-12-31'), format="%Y-%m-%d")-as.Date(as.character(end_date), format="%Y-%m-%d")
-f_prophet_days <- f_prophet_days+1
+end_date = "2021-12-21"
+
+f_prophet_days <-
+  as.Date(as.character('2020-12-01'), format = "%Y-%m-%d") - as.Date(as.character(end_date), format ="%Y-%m-%d")
+f_prophet_days <- f_prophet_days + 1
 
 #build prophet model
 
